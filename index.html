@@ -1,32 +1,22 @@
 <!DOCTYPE html>
 <html lang="es">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Clínica Veterinaria San Marcos</title>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Clínica Veterinaria San Marcos</title>
 
-  <!-- Tailwind CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Fuentes de Google -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Outfit:wght@100..900&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="min-h-full bg-[#F8F6F1] text-[#1C1A17]">
+    <div id="root"></div>
 
-  <!-- Leaflet CSS y JS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-  <!-- React 18 y Babel vía CDN -->
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-  <!-- Tu CSS -->
-  <link rel="stylesheet" href="css/style.css" />
-</head>
-<body class="min-h-full bg-[#F8F6F1] text-[#1C1A17]">
-
-  <!-- Contenedor donde React renderiza todo -->
-  <div id="root"></div>
-
-  <!-- Tus scripts JS (con type="text/babel" para soportar JSX de React) -->
-  <script type="text/babel" src="js/App.js"></script>
-  <script type="text/babel" src="js/main.js"></script>
-</body>
+    <!-- Script de entrada para Vite apuntando a tu carpeta js -->
+    <script type="module" src="/js/main.jsx"></script>
+  </body>
 </html>

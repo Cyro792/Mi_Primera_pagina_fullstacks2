@@ -1,6 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
-
+@import "tailwindcss";
 :root {
   --background: #F8F6F1;
   --foreground: #1C1A17;
@@ -28,6 +28,9 @@ body {
 /* Evita que el mapa de Leaflet se monte sobre el menú */
 #map,
 .leaflet-container {
+  width: 100%;
+  height: 450px !important;
+
   font-family: var(--font-body);
   border-radius: 1rem;
   z-index: 1 !important;
@@ -39,3 +42,4 @@ body {
 .leaflet-bottom {
   z-index: 2 !important;
 }
+
