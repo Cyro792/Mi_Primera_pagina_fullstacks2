@@ -40,7 +40,7 @@ function MapSection() {
       center: [CLINIC_LAT, CLINIC_LNG],
       zoom: 15,
       zoomControl: true,
-      scrollWheelZoom: true,
+      scrollWheelZoom: false,
     });
 
     // 2. Capa de CartoDB
@@ -95,7 +95,7 @@ function App() {
   const [enviado, setEnviado] = useState(false);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 48);
+    const onScroll = () => setScrolled(window.scrollY > 700);
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
@@ -115,7 +115,7 @@ function App() {
   return (
     <div className="min-h-full">
       {/* HEADER */}
-      <header className={`fixed top-0 inset-x-0 z-[1100] transition-all duration-300 ${scrolled ? "bg-[#F8F6F1]/95 backdrop-blur-md shadow-sm border-b border-[#E0DDD5]" : "bg-transparent"}`}>
+      <header className={`fixed top-0 inset-x-0 z-[50]  bg-[#1e3d32]/95 backdrop-blur-md transition-all duration-300 ${scrolled ? "bg-[#F8F6F1]/95 backdrop-blur-md shadow-sm border-b border-[#E0DDD5]" : "bg-transparent"}`}>
         <nav className="max-w-6xl mx-auto px-5 flex items-center justify-between h-16">
           <a href="#" className="flex items-center gap-2 font-display font-bold text-lg">
             <span className="w-8 h-8 rounded-full bg-[#2A6049] text-white flex items-center justify-center text-sm">🐾</span>
@@ -126,17 +126,65 @@ function App() {
             <a href="#equipo" className="hover:text-[#2A6049]">Equipo</a>
             <a href="#ubicacion" className="hover:text-[#2A6049]">Ubicación</a>
             <a href="#cita" className="px-4 py-2 bg-[#2A6049] text-white rounded-full">Reservar Cita</a>
+            <a href="login.html" className="px-5 py-2 bg-[#fff] text-black text-sm rounded-full">Login</a>
           </div>
-          <button className="md:hidden text-2xl" onClick={() => setMenuOpen(!menuOpen)}>☰</button>
-        </nav>
-        {menuOpen && (
-          <div className="md:hidden bg-[#F8F6F1] px-5 py-4 flex flex-col gap-3 border-b">
-            <a href="#servicios" onClick={() => setMenuOpen(false)}>Servicios</a>
-            <a href="#equipo" onClick={() => setMenuOpen(false)}>Equipo</a>
-            <a href="#ubicacion" onClick={() => setMenuOpen(false)}>Ubicación</a>
-            <a href="#cita" onClick={() => setMenuOpen(false)}>Reservar Cita</a>
-          </div>
-        )}
+          <button
+        className="md:hidden flex flex-col justify-center items-center gap-1.5 p-2 rounded-lg text-white"
+        onClick={() => setMenuOpen(!menuOpen)}
+        aria-label="Abrir menú"
+      >
+        <span className={`h-0.5 w-6 bg-white rounded transition-all duration-300 ${menuOpen ? "rotate-45 translate-y-2" : ""}`} />
+        <span className={`h-0.5 w-6 bg-white rounded transition-all duration-300 ${menuOpen ? "opacity-0" : ""}`} />
+        <span className={`h-0.5 w-6 bg-white rounded transition-all duration-300 ${menuOpen ? "-rotate-45 -translate-y-2" : ""}`} />
+      </button>
+    </nav>
+    <div
+      className={`md:hidden overflow-hidden transition-all duration-300 ease-in-out border-b border-white/10 bg-[#1e3d32]/95 backdrop-blur-md ${
+        menuOpen ? "max-h-96 opacity-100 py-5" : "max-h-0 opacity-0 py-0"
+      }`}
+    >
+      <div className="px-6 flex flex-col gap-3.5">
+        <a
+          href="#servicios"
+          onClick={() => setMenuOpen(false)}
+          className="text-white/80 hover:text-white text-base font-medium py-1 transition-colors"
+        >
+          Servicios
+        </a>
+        <a
+          href="#equipo"
+          onClick={() => setMenuOpen(false)}
+          className="text-white/80 hover:text-white text-base font-medium py-1 transition-colors"
+        >
+          Equipo
+        </a>
+        <a
+          href="#ubicacion"
+          onClick={() => setMenuOpen(false)}
+          className="text-white/80 hover:text-white text-base font-medium py-1 transition-colors"
+        >
+          Ubicación
+        </a>
+
+        {/* Botón Reservar Cita */}
+        <a
+          href="#cita"
+          onClick={() => setMenuOpen(false)}
+          className="mt-2 w-full py-2.5 bg-[#2A6049] hover:bg-[#23503d] text-white text-sm font-semibold rounded-full text-center shadow-sm border border-white/10 transition-colors"
+        >
+          Reservar Cita
+        </a>
+
+        {/* Botón Login */}
+        <a
+          href="/login.html"
+          onClick={() => setMenuOpen(false)}
+          className="w-full py-2.5 bg-[#C96A2E] hover:bg-[#b45b23] text-white text-sm font-semibold rounded-full text-center shadow-sm border border-[#b45b23] transition-colors"
+        >
+          Login
+        </a>
+      </div>
+    </div>
       </header>
 
       {/* HERO */}
