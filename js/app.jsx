@@ -32,10 +32,8 @@ function MapSection() {
   const mapInstanceRef = useRef(null);
 
   useEffect(() => {
-    // Si no existe el div o el mapa ya se inicializó, no hacer nada
     if (!mapRef.current || mapInstanceRef.current) return;
 
-    // 1. Declarar la variable map
     const map = L.map(mapRef.current, {
       center: [CLINIC_LAT, CLINIC_LNG],
       zoom: 15,
@@ -43,13 +41,11 @@ function MapSection() {
       scrollWheelZoom: false,
     });
 
-    // 2. Capa de CartoDB
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       maxZoom: 19,
     }).addTo(map);
 
-    // 3. Marcador
     const marker = L.marker([CLINIC_LAT, CLINIC_LNG]).addTo(map);
     marker.bindPopup(
       `<div style="font-family: sans-serif; font-size: 14px; line-height: 1.4;">
@@ -59,15 +55,12 @@ function MapSection() {
       </div>`
     ).openPopup();
 
-    // Guardar referencia de la instancia
     mapInstanceRef.current = map;
 
-    // Redibujado seguro
     setTimeout(() => {
       map.invalidateSize();
     }, 250);
 
-    // Limpieza al desmontar el componente
     return () => {
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
@@ -83,7 +76,6 @@ function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
-  // Estado del formulario de consulta / cita
   const [formData, setFormData] = useState({
     nombre: "",
     telefono: "",
@@ -115,76 +107,224 @@ function App() {
   return (
     <div className="min-h-full">
       {/* HEADER */}
-      <header className={`fixed top-0 inset-x-0 z-[50]  bg-[#1e3d32]/95 backdrop-blur-md transition-all duration-300 ${scrolled ? "bg-[#F8F6F1]/95 backdrop-blur-md shadow-sm border-b border-[#E0DDD5]" : "bg-transparent"}`}>
-        <nav className="max-w-6xl mx-auto px-5 flex items-center justify-between h-16">
-          <a href="#" className="flex items-center gap-2 font-display font-bold text-lg">
+        <header
+          className="fixed top-0 inset-x-0 z-50 transition-all duration-300"
+          style={{
+            backgroundColor: scrolled
+              ? 'rgba(248, 246, 241, 0.75)' // Al scrollear: crema translúcido
+              : 'rgba(27, 58, 42, 0.35)',    // Arriba del todo: verde bosque muy translúcido
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            borderBottom: scrolled
+              ? '1px solid rgba(224, 221, 213, 0.8)'
+              : '1px solid rgba(255, 255, 255, 0.12)',
+            boxShadow: scrolled ? '0 4px 20px rgba(0, 0, 0, 0.05)' : 'none',
+          }}
+        >
+      <nav className="max-w-6xl mx-auto px-5 flex items-center justify-between h-16">
+          <a href="#" className={`flex items-center gap-2 font-display font-bold text-lg ${scrolled ? "text-[#1C1A17]" : "text-white"}`}>
             <span className="w-8 h-8 rounded-full bg-[#2A6049] text-white flex items-center justify-center text-sm">🐾</span>
             San Marcos
           </a>
+          
           <div className="hidden md:flex items-center gap-6 text-sm font-medium">
-            <a href="#servicios" className="hover:text-[#2A6049]">Servicios</a>
-            <a href="#equipo" className="hover:text-[#2A6049]">Equipo</a>
-            <a href="#ubicacion" className="hover:text-[#2A6049]">Ubicación</a>
-            <a href="#cita" className="px-4 py-2 bg-[#2A6049] text-white rounded-full">Reservar Cita</a>
-            <a href="login.html" className="px-5 py-2 bg-[#fff] text-black text-sm rounded-full">Login</a>
+            <a href="#servicios" className={`transition-colors ${scrolled ? "text-[#1C1A17]/80 hover:text-[#2A6049]" : "text-white/80 hover:text-white"}`}>Servicios</a>
+            <a href="#equipo" className={`transition-colors ${scrolled ? "text-[#1C1A17]/80 hover:text-[#2A6049]" : "text-white/80 hover:text-white"}`}>Equipo</a>
+            <a href="#ubicacion" className={`transition-colors ${scrolled ? "text-[#1C1A17]/80 hover:text-[#2A6049]" : "text-white/80 hover:text-white"}`}>Ubicación</a>
+            
+            {/* Botón Reservar Cita (Desktop Navbar) */}
+            <a
+              href="#cita"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '8px 22px',
+                backgroundColor: 'rgba(42, 96, 73, 0.45)',
+                color: '#F8F6F1',
+                border: '1px solid rgba(245, 240, 230, 0.25)',
+                borderRadius: '9999px',
+                fontSize: '13px',
+                fontWeight: 600,
+                textDecoration: 'none',
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
+                boxShadow: '0 4px 15px rgba(0, 0, 0, 0.15)',
+                transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                cursor: 'pointer',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.backgroundColor = 'rgba(42, 96, 73, 0.85)'
+                e.currentTarget.style.borderColor = 'rgba(168, 200, 180, 0.6)'
+                e.currentTarget.style.transform = 'translateY(-2px) scale(1.04)'
+                e.currentTarget.style.boxShadow = '0 8px 20px rgba(0, 0, 0, 0.25), 0 0 12px rgba(168, 200, 180, 0.25)'
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.backgroundColor = 'rgba(42, 96, 73, 0.45)'
+                e.currentTarget.style.borderColor = 'rgba(245, 240, 230, 0.25)'
+                e.currentTarget.style.transform = 'translateY(0) scale(1)'
+                e.currentTarget.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.15)'
+              }}
+            >
+              Reservar Cita
+            </a>
+
+            {/* Botón Login (Desktop Navbar) */}
+            <a
+              href="login.html"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '8px 22px',
+                backgroundColor: 'rgba(201, 106, 46, 0.45)',
+                color: '#F8F6F1',
+                border: '1px solid rgba(245, 240, 230, 0.25)',
+                borderRadius: '9999px',
+                fontSize: '13px',
+                fontWeight: 600,
+                textDecoration: 'none',
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
+                boxShadow: '0 4px 15px rgba(0, 0, 0, 0.15)',
+                transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                cursor: 'pointer',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.backgroundColor = 'rgba(201, 106, 46, 0.85)'
+                e.currentTarget.style.borderColor = 'rgba(245, 180, 130, 0.6)'
+                e.currentTarget.style.transform = 'translateY(-2px) scale(1.04)'
+                e.currentTarget.style.boxShadow = '0 8px 20px rgba(0, 0, 0, 0.25), 0 0 12px rgba(201, 106, 46, 0.35)'
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.backgroundColor = 'rgba(201, 106, 46, 0.45)'
+                e.currentTarget.style.borderColor = 'rgba(245, 240, 230, 0.25)'
+                e.currentTarget.style.transform = 'translateY(0) scale(1)'
+                e.currentTarget.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.15)'
+              }}
+            >
+              Login
+            </a>
           </div>
+
           <button
-        className="md:hidden flex flex-col justify-center items-center gap-1.5 p-2 rounded-lg text-white"
-        onClick={() => setMenuOpen(!menuOpen)}
-        aria-label="Abrir menú"
-      >
-        <span className={`h-0.5 w-6 bg-white rounded transition-all duration-300 ${menuOpen ? "rotate-45 translate-y-2" : ""}`} />
-        <span className={`h-0.5 w-6 bg-white rounded transition-all duration-300 ${menuOpen ? "opacity-0" : ""}`} />
-        <span className={`h-0.5 w-6 bg-white rounded transition-all duration-300 ${menuOpen ? "-rotate-45 -translate-y-2" : ""}`} />
-      </button>
-    </nav>
-    <div
-      className={`md:hidden overflow-hidden transition-all duration-300 ease-in-out border-b border-white/10 bg-[#1e3d32]/95 backdrop-blur-md ${
-        menuOpen ? "max-h-96 opacity-100 py-5" : "max-h-0 opacity-0 py-0"
-      }`}
-    >
-      <div className="px-6 flex flex-col gap-3.5">
-        <a
-          href="#servicios"
-          onClick={() => setMenuOpen(false)}
-          className="text-white/80 hover:text-white text-base font-medium py-1 transition-colors"
-        >
-          Servicios
-        </a>
-        <a
-          href="#equipo"
-          onClick={() => setMenuOpen(false)}
-          className="text-white/80 hover:text-white text-base font-medium py-1 transition-colors"
-        >
-          Equipo
-        </a>
-        <a
-          href="#ubicacion"
-          onClick={() => setMenuOpen(false)}
-          className="text-white/80 hover:text-white text-base font-medium py-1 transition-colors"
-        >
-          Ubicación
-        </a>
+            className="md:hidden flex flex-col justify-center items-center gap-1.5 p-2 rounded-lg text-white"
+            onClick={() => setMenuOpen(!menuOpen)}
+            aria-label="Abrir menú"
+          >
+            <span className={`h-0.5 w-6 bg-white rounded transition-all duration-300 ${menuOpen ? "rotate-45 translate-y-2" : ""}`} />
+            <span className={`h-0.5 w-6 bg-white rounded transition-all duration-300 ${menuOpen ? "opacity-0" : ""}`} />
+            <span className={`h-0.5 w-6 bg-white rounded transition-all duration-300 ${menuOpen ? "-rotate-45 -translate-y-2" : ""}`} />
+          </button>
+        </nav>
 
-        {/* Botón Reservar Cita */}
-        <a
-          href="#cita"
-          onClick={() => setMenuOpen(false)}
-          className="mt-2 w-full py-2.5 bg-[#2A6049] hover:bg-[#23503d] text-white text-sm font-semibold rounded-full text-center shadow-sm border border-white/10 transition-colors"
+        <div
+          className={`md:hidden overflow-hidden transition-all duration-300 ease-in-out border-b border-white/10 bg-[#1e3d32]/95 backdrop-blur-md ${
+            menuOpen ? "max-h-96 opacity-100 py-5" : "max-h-0 opacity-0 py-0"
+          }`}
         >
-          Reservar Cita
-        </a>
+          <div className="px-6 flex flex-col gap-3.5">
+            <a
+              href="#servicios"
+              onClick={() => setMenuOpen(false)}
+              className="text-white/80 hover:text-white text-base font-medium py-1 transition-colors"
+            >
+              Servicios
+            </a>
+            <a
+              href="#equipo"
+              onClick={() => setMenuOpen(false)}
+              className="text-white/80 hover:text-white text-base font-medium py-1 transition-colors"
+            >
+              Equipo
+            </a>
+            <a
+              href="#ubicacion"
+              onClick={() => setMenuOpen(false)}
+              className="text-white/80 hover:text-white text-base font-medium py-1 transition-colors"
+            >
+              Ubicación
+            </a>
 
-        {/* Botón Login */}
-        <a
-          href="/login.html"
-          onClick={() => setMenuOpen(false)}
-          className="w-full py-2.5 bg-[#C96A2E] hover:bg-[#b45b23] text-white text-sm font-semibold rounded-full text-center shadow-sm border border-[#b45b23] transition-colors"
-        >
-          Login
-        </a>
-      </div>
-    </div>
+            {/* Botón Reservar Cita (Mobile) */}
+            <a
+              href="#cita"
+              onClick={() => setMenuOpen(false)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '12px 28px',
+                backgroundColor: 'rgba(27, 58, 42, 0.45)',
+                color: '#F8F6F1',
+                border: '1px solid rgba(245, 240, 230, 0.25)',
+                borderRadius: '9999px',
+                fontSize: '14px',
+                fontWeight: 600,
+                textDecoration: 'none',
+                letterSpacing: '0.03em',
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
+                boxShadow: '0 4px 15px rgba(0, 0, 0, 0.15)',
+                transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                cursor: 'pointer',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.backgroundColor = 'rgba(42, 96, 73, 0.7)'
+                e.currentTarget.style.borderColor = 'rgba(168, 200, 180, 0.6)'
+                e.currentTarget.style.transform = 'translateY(-3px) scale(1.03)'
+                e.currentTarget.style.boxShadow = '0 10px 25px rgba(0, 0, 0, 0.25), 0 0 15px rgba(168, 200, 180, 0.2)'
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.backgroundColor = 'rgba(27, 58, 42, 0.45)'
+                e.currentTarget.style.borderColor = 'rgba(245, 240, 230, 0.25)'
+                e.currentTarget.style.transform = 'translateY(0) scale(1)'
+                e.currentTarget.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.15)'
+              }}
+            >
+              Reservar Cita
+            </a>
+
+            {/* Botón Login (Mobile) */}
+            <a
+              href="/login.html"
+              onClick={() => setMenuOpen(false)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '12px 28px',
+                backgroundColor: 'rgba(201, 106, 46, 0.55)',
+                color: '#F8F6F1',
+                border: '1px solid rgba(245, 240, 230, 0.25)',
+                borderRadius: '9999px',
+                fontSize: '14px',
+                fontWeight: 600,
+                textDecoration: 'none',
+                letterSpacing: '0.03em',
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
+                boxShadow: '0 4px 15px rgba(0, 0, 0, 0.15)',
+                transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                cursor: 'pointer',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.backgroundColor = 'rgba(201, 106, 46, 0.85)'
+                e.currentTarget.style.borderColor = 'rgba(245, 180, 130, 0.6)'
+                e.currentTarget.style.transform = 'translateY(-3px) scale(1.03)'
+                e.currentTarget.style.boxShadow = '0 10px 25px rgba(0, 0, 0, 0.25), 0 0 15px rgba(201, 106, 46, 0.3)'
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.backgroundColor = 'rgba(201, 106, 46, 0.55)'
+                e.currentTarget.style.borderColor = 'rgba(245, 240, 230, 0.25)'
+                e.currentTarget.style.transform = 'translateY(0) scale(1)'
+                e.currentTarget.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.15)'
+              }}
+            >
+              Login
+            </a>
+          </div>
+        </div>
       </header>
 
       {/* HERO */}
@@ -193,7 +333,43 @@ function App() {
         <div className="relative z-10 max-w-6xl mx-auto px-5 py-20 text-white">
           <h1 className="text-4xl sm:text-6xl font-bold font-display mb-4">El cuidado que tu mascota merece</h1>
           <p className="max-w-md text-white/80 mb-6">Atención veterinaria de alta calidad con equipo especializado en Rancagua.</p>
-          <a href="#cita" className="px-6 py-3 bg-[#2A6049] font-semibold rounded-full inline-block">Reservar Cita</a>
+          
+          {/* Botón Reservar Cita (Hero Principal) */}
+          <a
+            href="#cita"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '14px 34px',
+              backgroundColor: 'rgba(27, 58, 42, 0.55)',
+              color: '#F8F6F1',
+              border: '1px solid rgba(255, 255, 255, 0.25)',
+              borderRadius: '9999px',
+              fontWeight: 600,
+              fontSize: '15px',
+              textDecoration: 'none',
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
+              boxShadow: '0 8px 30px rgba(0, 0, 0, 0.3)',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              cursor: 'pointer',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.backgroundColor = 'rgba(42, 96, 73, 0.85)'
+              e.currentTarget.style.borderColor = 'rgba(168, 200, 180, 0.7)'
+              e.currentTarget.style.transform = 'translateY(-4px) scale(1.05)'
+              e.currentTarget.style.boxShadow = '0 14px 30px rgba(0, 0, 0, 0.4), 0 0 20px rgba(116, 180, 155, 0.35)'
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.backgroundColor = 'rgba(27, 58, 42, 0.55)'
+              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.25)'
+              e.currentTarget.style.transform = 'translateY(0) scale(1)'
+              e.currentTarget.style.boxShadow = '0 8px 30px rgba(0, 0, 0, 0.3)'
+            }}
+          >
+            Reservar Cita
+          </a>
         </div>
       </section>
 
@@ -241,7 +417,44 @@ function App() {
             <p><strong>📍 Dirección:</strong> Av. Libertador Bdo. O'Higgins, Rancagua</p>
             <p><strong>🕒 Horario:</strong> Lun - Vie: 9:00 - 21:00 (Urgencias 24h)</p>
             <p><strong>📞 Teléfono:</strong> +56 9 5094 8714</p>
-            <a href="tel:+56950948714" className="block text-center py-3 bg-[#2A6049] text-white rounded-full font-semibold">Llamar Ahora</a>
+            
+            {/* Botón Llamar Ahora */}
+            <a
+              href="tel:+56950948714"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '100%',
+                padding: '12px 24px',
+                backgroundColor: 'rgba(42, 96, 73, 0.9)',
+                color: '#F8F6F1',
+                border: '1px solid rgba(42, 96, 73, 0.4)',
+                borderRadius: '9999px',
+                fontWeight: 600,
+                fontSize: '14px',
+                textDecoration: 'none',
+                backdropFilter: 'blur(10px)',
+                WebkitBackdropFilter: 'blur(10px)',
+                boxShadow: '0 4px 15px rgba(42, 96, 73, 0.25)',
+                transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                cursor: 'pointer',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.backgroundColor = '#1f4d3a'
+                e.currentTarget.style.borderColor = 'rgba(168, 200, 180, 0.6)'
+                e.currentTarget.style.transform = 'translateY(-3px) scale(1.02)'
+                e.currentTarget.style.boxShadow = '0 10px 22px rgba(42, 96, 73, 0.35), 0 0 15px rgba(116, 180, 155, 0.25)'
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.backgroundColor = 'rgba(42, 96, 73, 0.9)'
+                e.currentTarget.style.borderColor = 'rgba(42, 96, 73, 0.4)'
+                e.currentTarget.style.transform = 'translateY(0) scale(1)'
+                e.currentTarget.style.boxShadow = '0 4px 15px rgba(42, 96, 73, 0.25)'
+              }}
+            >
+              Llamar Ahora
+            </a>
           </div>
         </div>
       </section>
@@ -259,9 +472,37 @@ function App() {
               <div className="w-12 h-12 bg-[#2A6049]/10 text-[#2A6049] text-2xl flex items-center justify-center rounded-full mx-auto mb-4">✓</div>
               <h3 className="text-xl font-bold font-display mb-2">¡Solicitud recibida, {formData.nombre}!</h3>
               <p className="text-sm text-[#7A7670] mb-6">Nos pondremos en contacto al número {formData.telefono} para confirmar la fecha y horario de tu consulta.</p>
+              
+              {/* Botón Generar otra consulta */}
               <button 
                 onClick={() => { setEnviado(false); setFormData({ nombre: "", telefono: "", mascota: "", servicio: "", fecha: "", mensaje: "" }); }}
-                className="px-6 py-2.5 bg-[#2A6049] text-white text-sm font-semibold rounded-full"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '10px 24px',
+                  backgroundColor: 'rgba(42, 96, 73, 0.9)',
+                  color: '#F8F6F1',
+                  border: '1px solid rgba(42, 96, 73, 0.4)',
+                  borderRadius: '9999px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  backdropFilter: 'blur(8px)',
+                  WebkitBackdropFilter: 'blur(8px)',
+                  boxShadow: '0 4px 14px rgba(42, 96, 73, 0.2)',
+                  transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.backgroundColor = '#1f4d3a'
+                  e.currentTarget.style.transform = 'translateY(-2px) scale(1.03)'
+                  e.currentTarget.style.boxShadow = '0 8px 20px rgba(42, 96, 73, 0.3)'
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.backgroundColor = 'rgba(42, 96, 73, 0.9)'
+                  e.currentTarget.style.transform = 'translateY(0) scale(1)'
+                  e.currentTarget.style.boxShadow = '0 4px 14px rgba(42, 96, 73, 0.2)'
+                }}
               >
                 Generar otra consulta
               </button>
@@ -352,9 +593,39 @@ function App() {
                 ></textarea>
               </div>
 
+              {/* Botón Submit del Formulario */}
               <button
                 type="submit"
-                className="w-full py-3.5 bg-[#2A6049] text-white font-semibold rounded-full hover:bg-[#1f4d3a] transition-colors shadow-sm text-sm"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '100%',
+                  padding: '14px 24px',
+                  backgroundColor: 'rgba(42, 96, 73, 0.9)',
+                  color: '#F8F6F1',
+                  border: '1px solid rgba(42, 96, 73, 0.4)',
+                  borderRadius: '9999px',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  backdropFilter: 'blur(10px)',
+                  WebkitBackdropFilter: 'blur(10px)',
+                  boxShadow: '0 4px 15px rgba(42, 96, 73, 0.25)',
+                  transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.backgroundColor = '#1f4d3a'
+                  e.currentTarget.style.borderColor = 'rgba(168, 200, 180, 0.6)'
+                  e.currentTarget.style.transform = 'translateY(-3px) scale(1.015)'
+                  e.currentTarget.style.boxShadow = '0 10px 24px rgba(42, 96, 73, 0.35), 0 0 15px rgba(116, 180, 155, 0.25)'
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.backgroundColor = 'rgba(42, 96, 73, 0.9)'
+                  e.currentTarget.style.borderColor = 'rgba(42, 96, 73, 0.4)'
+                  e.currentTarget.style.transform = 'translateY(0) scale(1)'
+                  e.currentTarget.style.boxShadow = '0 4px 15px rgba(42, 96, 73, 0.25)'
+                }}
               >
                 Solicitar Cita Médica
               </button>
