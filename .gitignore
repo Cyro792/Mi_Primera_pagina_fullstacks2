@@ -1,0 +1,19 @@
+# Dependencias (se reinstalan con "npm install")
+node_modules/
+
+# Resultados de build y de pruebas
+dist/
+coverage/
+
+# Variables de entorno locales (nunca subir credenciales)
+.env
+.env.*
+!.env.example
+
+# Configuración del IDE
+.idea/
+
+# Logs y archivos del sistema
+*.log
+.DS_Store
+Thumbs.db
