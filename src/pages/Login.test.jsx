@@ -46,7 +46,7 @@ describe('Login (inicio de sesión y registro)', () => {
   it('guarda la sesión para que sobreviva a una recarga de la página', () => {
     renderConApp(<Login />, opciones())
     iniciarSesion('ana.garcia@correo.cl', 'Cliente123!')
-    expect(JSON.parse(localStorage.getItem('sanmarcos_sesion'))).toEqual(USUARIOS.cliente)
+    expect(JSON.parse(localStorage.getItem('sanmarcos_sesion'))).toMatchObject(USUARIOS.cliente)
   })
 
   it('vuelve a la página desde la que se pidió iniciar sesión (por ejemplo, el carrito)', () => {

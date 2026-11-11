@@ -48,8 +48,63 @@ function leerRegistradas(storage) {
   }
 }
 
+// Cambios que el usuario hace en su cuenta (nombre y contraseña). Se guardan aparte y se aplican
+// encima de cada cuenta; nunca pueden cambiar el rol.
+const CLAVE_AJUSTES = 'sanmarcos_ajustes_cuentas'
+
+function leerAjustes(storage) {
+  try {
+    const ajustes = JSON.parse(storage.getItem(CLAVE_AJUSTES))
+    return ajustes && typeof ajustes === 'object' && !Array.isArray(ajustes) ? ajustes : {}
+  } catch {
+    return {}
+  }
+}
+
+function guardarAjuste(email, cambios, storage) {
+  const ajustes = leerAjustes(storage)
+  try {
+    storage.setItem(CLAVE_AJUSTES, JSON.stringify({ ...ajustes, [email]: { ...ajustes[email], ...cambios } }))
+    return true
+  } catch {
+    return false
+  }
+}
+
 export function obtenerCuentas(storage = window.localStorage) {
-  return [...CUENTAS_DEMO, ...leerRegistradas(storage)]
+  const ajustes = leerAjustes(storage)
+  return [...CUENTAS_DEMO, ...leerRegistradas(storage)].map((cuenta) => {
+    const { nombre, password } = ajustes[cuenta.email] ?? {}
+    return { ...cuenta, ...(nombre && { nombre }), ...(password && { password }) }
+  })
+}
+
+/** Cambia el nombre visible de la cuenta. */
+export function actualizarNombre(email, nombre, storage = window.localStorage) {
+  return guardarAjuste(email, { nombre: nombre.trim() }, storage)
+    ? { ok: true }
+    : { ok: false, error: 'No se pudo guardar el nombre en este navegador.' }
+}
+
+export function validarCambioPassword({ actual = '', nueva = '', confirmar = '' }, passwordVigente) {
+  const errores = {}
+  if (!actual) errores.actual = 'Ingresa tu contraseña actual.'
+  else if (actual !== passwordVigente) errores.actual = 'La contraseña actual no es correcta.'
+  if (nueva.length < 8) errores.nueva = 'La nueva contraseña debe tener al menos 8 caracteres.'
+  else if (nueva === actual) errores.nueva = 'La nueva contraseña debe ser distinta de la actual.'
+  if (confirmar !== nueva) errores.confirmar = 'Las contraseñas no coinciden.'
+  return errores
+}
+
+/** Cambia la contraseña si la actual es correcta. Devuelve { ok } o { ok: false, errores }. */
+export function cambiarPassword(email, datos, storage = window.localStorage) {
+  const cuenta = obtenerCuentas(storage).find((c) => c.email === email)
+  if (!cuenta) return { ok: false, errores: { actual: 'No encontramos tu cuenta.' } }
+  const errores = validarCambioPassword(datos, cuenta.password)
+  if (Object.keys(errores).length > 0) return { ok: false, errores }
+  return guardarAjuste(email, { password: datos.nueva }, storage)
+    ? { ok: true }
+    : { ok: false, errores: { nueva: 'No se pudo guardar la contraseña en este navegador.' } }
 }
 
 export function validarRegistro({ nombre = '', email = '', password = '', confirmar = '' }, cuentas = obtenerCuentas()) {

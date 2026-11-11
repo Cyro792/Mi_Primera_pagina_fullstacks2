@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { autenticar, borrarSesion, guardarSesion, leerSesion, registrarCuenta } from '../services/auth.js'
+import { actualizarNombre, autenticar, borrarSesion, guardarSesion, leerSesion, registrarCuenta } from '../services/auth.js'
+import { guardarPerfil as guardarPerfilEn, leerPerfil } from '../services/perfil.js'
 
 const AuthContext = createContext(null)
 
@@ -19,17 +20,35 @@ export function AuthProvider({ children }) {
 
   const iniciarSesion = useCallback((credenciales) => {
     const resultado = autenticar(credenciales)
-    if (resultado.ok) {
-      guardarSesion(resultado.usuario)
-      setUsuario(resultado.usuario)
-    }
-    return resultado
+    if (!resultado.ok) return resultado
+    // El avatar elegido en "Mi cuenta" viaja con la sesión para mostrarlo en la barra.
+    const conAvatar = { ...resultado.usuario, avatar: leerPerfil(resultado.usuario.email).avatar }
+    guardarSesion(conAvatar)
+    setUsuario(conAvatar)
+    return { ...resultado, usuario: conAvatar }
   }, [])
 
   const cerrarSesion = useCallback(() => {
     borrarSesion()
     setUsuario(null)
   }, [])
+
+  /** Guarda nombre, avatar y datos de contacto, y refleja el cambio en la sesión al instante. */
+  const guardarPerfil = useCallback(
+    ({ nombre, ...perfil }) => {
+      if (!usuario) return { ok: false, error: 'No hay una sesión iniciada.' }
+      const resultadoNombre = actualizarNombre(usuario.email, nombre)
+      const resultadoPerfil = guardarPerfilEn(usuario.email, perfil)
+      if (!resultadoNombre.ok || !resultadoPerfil.ok) {
+        return { ok: false, error: resultadoNombre.error ?? resultadoPerfil.error }
+      }
+      const actualizado = { ...usuario, nombre: nombre.trim(), avatar: resultadoPerfil.perfil.avatar }
+      guardarSesion(actualizado)
+      setUsuario(actualizado)
+      return { ok: true }
+    },
+    [usuario],
+  )
 
   const valor = useMemo(
     () => ({
@@ -38,9 +57,10 @@ export function AuthProvider({ children }) {
       tieneRol: (...roles) => usuario !== null && roles.includes(usuario.rol),
       iniciarSesion,
       cerrarSesion,
+      guardarPerfil,
       registrar: registrarCuenta,
     }),
-    [usuario, iniciarSesion, cerrarSesion],
+    [usuario, iniciarSesion, cerrarSesion, guardarPerfil],
   )
 
   return <AuthContext.Provider value={valor}>{children}</AuthContext.Provider>

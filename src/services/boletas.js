@@ -14,10 +14,14 @@ function leerBoletas(storage) {
   }
 }
 
-/** Crea la boleta a partir del carrito. Rechaza si no hay cliente o si el carrito está vacío. */
-export async function crearBoleta({ cliente, items }, storage = window.localStorage) {
+/**
+ * Crea la boleta a partir del carrito y del pago aprobado (ver services/pagos.js).
+ * Del pago solo se guarda la marca, los últimos 4 dígitos y el código de autorización.
+ */
+export async function crearBoleta({ cliente, items, pago }, storage = window.localStorage) {
   if (!cliente?.email) throw new Error('Debes iniciar sesión para comprar.')
   if (!items || items.length === 0) throw new Error('Tu carrito está vacío.')
+  if (!pago?.aprobado) throw new Error('El pago no fue aprobado.')
 
   const anteriores = leerBoletas(storage)
   const boleta = {
@@ -26,6 +30,7 @@ export async function crearBoleta({ cliente, items }, storage = window.localStor
     clienteEmail: cliente.email,
     clienteNombre: cliente.nombre,
     estado: 'PAGADA',
+    medioPago: { marca: pago.marca, ultimos4: pago.ultimos4, codigoAutorizacion: pago.codigoAutorizacion },
     detalles: items.map((i) => ({
       productoId: i.id,
       nombre: i.nombre,

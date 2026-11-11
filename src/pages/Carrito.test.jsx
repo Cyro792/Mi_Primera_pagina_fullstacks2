@@ -44,29 +44,20 @@ describe('Carrito de compras', () => {
     expect(screen.getByTestId('total-carrito')).toHaveTextContent('25.980')
   })
 
-  it('sin sesión pide iniciar sesión y no permite confirmar la compra', () => {
+  it('sin sesión pide iniciar sesión y no permite ir a pagar', () => {
     renderConApp(<Carrito />, opciones())
     expect(screen.getByRole('link', { name: 'Inicia sesión para comprar' })).toHaveAttribute('href', '/login')
-    expect(screen.queryByRole('button', { name: 'Confirmar compra' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Ir a pagar' })).not.toBeInTheDocument()
   })
 
   it('el personal de la clínica no puede comprar con su cuenta', () => {
     renderConApp(<Carrito />, opciones({ sesion: USUARIOS.recepcion }))
-    expect(screen.queryByRole('button', { name: 'Confirmar compra' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Ir a pagar' })).not.toBeInTheDocument()
     expect(screen.getByText(/cuenta de cliente/)).toBeInTheDocument()
   })
 
-  it('un cliente confirma la compra: se crea la boleta, se vacía el carrito y se celebra', async () => {
+  it('un cliente ve el botón "Ir a pagar", que lleva al paso de pago', () => {
     renderConApp(<Carrito />, opciones({ sesion: USUARIOS.cliente }))
-    fireEvent.click(screen.getByRole('button', { name: 'Confirmar compra' }))
-
-    expect(await screen.findByRole('heading', { name: '¡Gracias por tu compra!' })).toBeInTheDocument()
-    expect(screen.getByText(/Total pagado: \$?\s?50\.980/)).toBeInTheDocument()
-    expect(screen.getByTestId('confeti')).toBeInTheDocument()
-
-    const boletas = JSON.parse(localStorage.getItem('sanmarcos_boletas'))
-    expect(boletas).toHaveLength(1)
-    expect(boletas[0]).toMatchObject({ clienteEmail: 'ana.garcia@correo.cl', total: 50980 })
-    await waitFor(() => expect(JSON.parse(localStorage.getItem('sanmarcos_carrito'))).toEqual([]))
+    expect(screen.getByRole('link', { name: 'Ir a pagar' })).toHaveAttribute('href', '/pago')
   })
 })

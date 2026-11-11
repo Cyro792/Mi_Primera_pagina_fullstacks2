@@ -7,6 +7,7 @@ import Aparecer from '../components/animaciones/Aparecer.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { listarBoletasDe } from '../services/boletas.js'
 import { formatoCLP } from '../utils/stats.js'
+import { describirTarjeta } from '../utils/tarjeta.js'
 
 const formatoFecha = new Intl.DateTimeFormat('es-CL', { dateStyle: 'long', timeStyle: 'short' })
 
@@ -51,6 +52,11 @@ export default function MisCompras() {
                     <span className="fw-semibold me-3">{formatoCLP(boleta.total)}</span>
                   </Accordion.Header>
                   <Accordion.Body>
+                    {boleta.medioPago && (
+                      <p className="texto-suave small mb-2">
+                        💳 Pagado con {describirTarjeta(boleta.medioPago)} · Autorización {boleta.medioPago.codigoAutorizacion}
+                      </p>
+                    )}
                     <Table responsive size="sm" className="align-middle mb-0">
                       <thead>
                         <tr>

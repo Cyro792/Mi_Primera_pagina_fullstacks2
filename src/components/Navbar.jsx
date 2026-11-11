@@ -8,6 +8,7 @@ import { motion } from 'motion/react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useCarrito } from '../context/CarritoContext.jsx'
 import { ROLES } from '../services/auth.js'
+import Avatar from './Avatar.jsx'
 
 const ENLACES = [
   { a: '/#servicios', texto: 'Servicios' },
@@ -99,7 +100,14 @@ export default function Navbar() {
             </Link>
 
             {usuario ? (
-              <NavDropdown title={`Hola, ${usuario.nombre.split(' ')[0]}`} id="menu-usuario" align="end" className="barra-enlace menu-usuario">
+              <NavDropdown
+                title={
+                  <span className="d-inline-flex align-items-center gap-2">
+                    <Avatar avatar={usuario.avatar} />
+                    Hola, {usuario.nombre.split(' ')[0]}
+                  </span>
+                }
+                id="menu-usuario" align="end" className="barra-enlace menu-usuario">
                 {tieneRol(ROLES.ADMIN) && (
                   <NavDropdown.Item as={Link} to="/admin" onClick={cerrar}>Panel de administración</NavDropdown.Item>
                 )}
@@ -107,7 +115,11 @@ export default function Navbar() {
                   <NavDropdown.Item as={Link} to="/recepcion" onClick={cerrar}>Panel de recepción</NavDropdown.Item>
                 )}
                 {tieneRol(ROLES.CLIENTE) && (
-                  <NavDropdown.Item as={Link} to="/mis-compras" onClick={cerrar}>Mis compras</NavDropdown.Item>
+                  <>
+                    <NavDropdown.Item as={Link} to="/mi-cuenta" onClick={cerrar}>Mi cuenta</NavDropdown.Item>
+                    <NavDropdown.Item as={Link} to="/mi-cuenta?seccion=tarjetas" onClick={cerrar}>Mis tarjetas</NavDropdown.Item>
+                    <NavDropdown.Item as={Link} to="/mis-compras" onClick={cerrar}>Mis compras</NavDropdown.Item>
+                  </>
                 )}
                 <NavDropdown.Divider />
                 <NavDropdown.Item as="button" type="button" onClick={salir}>Cerrar sesión</NavDropdown.Item>

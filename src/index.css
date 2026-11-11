@@ -1235,3 +1235,419 @@ main {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ==========================================================================
+   Pago con tarjeta
+   ========================================================================== */
+
+/* Tarjeta 3D: la escena da perspectiva, la inclinación sigue al mouse y la tarjeta gira */
+/* container-type: los textos de la tarjeta se miden en "cqw" (% del ancho de la tarjeta),
+   así el número siempre cabe, sea la tarjeta grande o pequeña. */
+.tarjeta-escena {
+  width: 100%;
+  max-width: 22rem;
+  margin-inline: auto;
+  perspective: 1200px;
+  container-type: inline-size;
+}
+.tarjeta-escena--compacta {
+  max-width: 17rem;
+  margin-inline: 0;
+}
+.tarjeta-inclinacion,
+.tarjeta-credito {
+  position: relative;
+  transform-style: preserve-3d;
+}
+.tarjeta-credito {
+  aspect-ratio: 1.586;
+}
+.tarjeta-cara {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 6cqw 7cqw;
+  border-radius: 1.1rem;
+  overflow: hidden;
+  color: #fff;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  box-shadow: 0 22px 45px rgba(15, 30, 22, 0.28);
+}
+.tarjeta-cara > :not(.tarjeta-fondo):not(.tarjeta-brillo) {
+  position: relative;
+  z-index: 2;
+}
+.tarjeta-cara--reverso {
+  transform: rotateY(180deg);
+  justify-content: flex-start;
+  padding: 0;
+}
+.tarjeta-fondo {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+/* Reflejo de luz que cruza la tarjeta cada cierto tiempo */
+.tarjeta-brillo {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.28) 45%, transparent 60%);
+  transform: translateX(-110%);
+  animation: brillo 5s ease-in-out infinite;
+  pointer-events: none;
+}
+.tarjeta-chip {
+  width: 12cqw;
+  height: 9cqw;
+  border-radius: 0.4rem;
+  background:
+    linear-gradient(90deg, transparent 45%, rgba(0, 0, 0, 0.18) 45% 55%, transparent 55%),
+    linear-gradient(0deg, transparent 45%, rgba(0, 0, 0, 0.18) 45% 55%, transparent 55%),
+    linear-gradient(135deg, #f1dc96, #b8963f);
+}
+.tarjeta-contactless {
+  font-size: 0.85rem;
+  letter-spacing: -0.1em;
+  opacity: 0.75;
+  transform: scaleY(1.4);
+}
+.tarjeta-numero {
+  display: flex;
+  font-family: "Courier New", ui-monospace, monospace;
+  font-size: 5.6cqw;
+  font-weight: 700;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+.tarjeta-digito {
+  display: inline-block;
+  width: 0.72em;
+  text-align: center;
+}
+.tarjeta-espacio {
+  display: inline-block;
+  width: 0.55em;
+}
+.tarjeta-etiqueta {
+  font-size: 2.8cqw;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  opacity: 0.72;
+}
+.tarjeta-dato {
+  font-size: 4cqw;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.tarjeta-banda {
+  height: 13cqw;
+  margin-top: 7cqw;
+  background: #161616;
+}
+.tarjeta-firma {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  height: 12cqw;
+  margin: 6cqw 7cqw 0;
+  padding-right: 0.8rem;
+  border-radius: 0.3rem;
+  background: repeating-linear-gradient(-45deg, #fff 0 6px, #f1eee6 6px 12px);
+  color: var(--vet-tinta);
+}
+.tarjeta-cvv {
+  font-family: "Courier New", monospace;
+  font-weight: 700;
+  font-size: 1.1rem;
+  letter-spacing: 0.15em;
+}
+.tarjeta-reverso-pie {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: auto 7cqw 5cqw;
+  font-size: 2.8cqw;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+/* Logos de las marcas, dibujados con CSS */
+.logo-marca {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  min-width: 2.6rem;
+  height: 1.7rem;
+  padding: 0 0.35rem;
+  border: 1px solid var(--vet-borde);
+  border-radius: 0.3rem;
+  background: #fff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+}
+.logo-marca--visa {
+  color: #1a1f71;
+  font-style: italic;
+  letter-spacing: 0.02em;
+}
+.logo-marca--amex {
+  background: #1f72cd;
+  border-color: #1f72cd;
+  color: #fff;
+}
+.logo-marca--diners {
+  color: #0079be;
+  font-size: 0.6rem;
+}
+.logo-marca--mc span {
+  width: 1.05rem;
+  height: 1.05rem;
+  border-radius: 50%;
+  background: #eb001b;
+}
+.logo-marca--mc span + span {
+  margin-left: -0.45rem;
+  background: rgba(247, 158, 27, 0.9);
+}
+.logo-marca--generica {
+  font-size: 0.95rem;
+}
+.logo-marca--en-tarjeta {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: transparent;
+}
+
+/* Lista de medios de pago */
+.metodo {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.85rem 1rem;
+  border: 1.5px solid var(--vet-borde);
+  border-radius: 0.9rem;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.2s, background-color 0.2s, transform 0.2s var(--curva-suave);
+}
+.metodo:hover {
+  border-color: var(--vet-menta);
+  transform: translateX(3px);
+}
+.metodo--activo {
+  border-color: var(--vet-verde);
+  background: #f2f8f4;
+}
+.metodo--deshabilitado {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.form-check-input:checked {
+  background-color: var(--vet-verde);
+  border-color: var(--vet-verde);
+}
+.form-check-input:focus {
+  border-color: var(--vet-verde);
+  box-shadow: 0 0 0 0.2rem rgba(42, 96, 73, 0.2);
+}
+.insignia--alerta {
+  background: #fdecea;
+  border-color: #f5c2bd;
+  color: #b3261e;
+}
+.insignia--verde {
+  background: #e3f0e9;
+  border-color: #b9d6c7;
+  color: var(--vet-verde);
+}
+
+/* Pantalla de "procesando pago" */
+.pago-procesando {
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(248, 246, 241, 0.88);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+.pago-procesando-tarjeta {
+  font-size: 3.5rem;
+  margin-bottom: 1rem;
+}
+.pago-procesando-barra {
+  width: 14rem;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--vet-borde);
+  overflow: hidden;
+}
+.pago-procesando-barra span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--vet-menta), var(--vet-verde));
+}
+
+/* ==========================================================================
+   Mi cuenta
+   ========================================================================== */
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border-radius: 50%;
+  color: #fff;
+  overflow: hidden;
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.12);
+  transition: background-color 0.35s ease;
+}
+.avatar--chico {
+  width: 1.9rem;
+  height: 1.9rem;
+  font-size: 1rem;
+}
+.avatar--grande {
+  width: 5rem;
+  height: 5rem;
+  font-size: 2.6rem;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.15), inset 0 -5px 0 rgba(0, 0, 0, 0.12);
+}
+.menu-usuario .dropdown-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.personalizacion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1.25rem;
+  border-radius: 1rem;
+  background: var(--vet-arena);
+}
+.opcion-avatar {
+  width: 2.7rem;
+  height: 2.7rem;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  background: #fff;
+  font-size: 1.4rem;
+  line-height: 1;
+}
+.opcion-avatar--activa {
+  border-color: var(--vet-verde);
+  box-shadow: 0 0 0 3px rgba(42, 96, 73, 0.18);
+}
+.opcion-color {
+  width: 2rem;
+  height: 2rem;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--vet-borde);
+}
+.opcion-color--activa {
+  box-shadow: 0 0 0 2px var(--vet-tinta);
+}
+.menu-cuenta {
+  position: sticky;
+  top: calc(var(--alto-barra) + 1.5rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+@media (max-width: 991.98px) {
+  .menu-cuenta {
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}
+.menu-cuenta-opcion {
+  position: relative;
+  padding: 0.7rem 1rem;
+  border: 0;
+  border-radius: 0.8rem;
+  background: transparent;
+  color: var(--vet-tinta);
+  font-weight: 500;
+  text-align: left;
+  text-decoration: none;
+  transition: background-color 0.2s, color 0.2s;
+}
+.menu-cuenta-opcion:hover {
+  background: rgba(42, 96, 73, 0.07);
+  color: var(--vet-tinta);
+}
+.menu-cuenta-opcion--activa,
+.menu-cuenta-opcion--activa:hover {
+  background: transparent;
+  color: #fff;
+}
+/* Fondo verde que se desliza hasta la opción elegida */
+.menu-cuenta-indicador {
+  position: absolute;
+  inset: 0;
+  border-radius: 0.8rem;
+  background: var(--vet-verde);
+}
+.tarjeta--suave {
+  background: var(--vet-arena);
+  border-color: transparent;
+}
+.lista-tarjetas {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 1.75rem;
+  margin: 0;
+}
+.enlace-accion {
+  color: var(--vet-verde);
+  font-weight: 500;
+  text-decoration: none;
+}
+.enlace-accion--peligro {
+  color: #b3261e;
+}
+.aviso-guardado {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  background: #e3f0e9;
+  color: var(--vet-verde);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+.aviso-guardado-icono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.3rem;
+  height: 1.3rem;
+  border-radius: 50%;
+  background: var(--vet-verde);
+  color: #fff;
+  font-size: 0.75rem;
+}
+
+@keyframes brillo {
+  0%, 55% { transform: translateX(-110%); }
+  100% { transform: translateX(110%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tarjeta-brillo {
+    animation: none;
+  }
+}

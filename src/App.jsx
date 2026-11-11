@@ -11,6 +11,8 @@ import Tienda from './pages/Tienda.jsx'
 import DetalleProducto from './pages/DetalleProducto.jsx'
 import Carrito from './pages/Carrito.jsx'
 import MisCompras from './pages/MisCompras.jsx'
+import MiCuenta from './pages/MiCuenta.jsx'
+import Pago from './pages/Pago.jsx'
 import Login from './pages/Login.jsx'
 import NoEncontrada from './pages/NoEncontrada.jsx'
 
@@ -47,6 +49,8 @@ export function Rutas() {
               <Route path="/producto/:id" element={<DetalleProducto />} />
               <Route path="/carrito" element={<Carrito />} />
               {/* Solo clientes con sesión iniciada */}
+              <Route path="/pago" element={<RutaProtegida roles={[ROLES.CLIENTE]}><Pago /></RutaProtegida>} />
+              <Route path="/mi-cuenta" element={<RutaProtegida roles={[ROLES.CLIENTE]}><MiCuenta /></RutaProtegida>} />
               <Route path="/mis-compras" element={<RutaProtegida roles={[ROLES.CLIENTE]}><MisCompras /></RutaProtegida>} />
               <Route path="*" element={<NoEncontrada />} />
             </Route>
