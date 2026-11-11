@@ -1,0 +1,37 @@
+/* Ajustes responsive del panel de recepción (sus estilos base están en línea en el componente).
+   En pantallas angostas la barra lateral pasa arriba y las métricas se apilan. */
+@media (max-width: 767.98px) {
+  .recepcion {
+    flex-direction: column;
+  }
+  .recepcion .recepcion-lateral {
+    width: 100% !important;
+    padding: 1.25rem 1.25rem !important;
+    flex-direction: row !important;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+  }
+  .recepcion .recepcion-lateral > div > div:first-child {
+    margin-bottom: 0.75rem !important;
+  }
+  .recepcion .recepcion-lateral > button {
+    width: auto !important;
+    padding-inline: 1.25rem !important;
+  }
+  .recepcion .recepcion-principal {
+    padding: 1.25rem 1rem !important;
+  }
+  .recepcion .recepcion-metricas {
+    grid-template-columns: 1fr !important;
+    gap: 0.75rem !important;
+  }
+  .recepcion .recepcion-fila {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 0.75rem;
+  }
+  .recepcion .recepcion-acciones {
+    flex-wrap: wrap;
+  }
+}

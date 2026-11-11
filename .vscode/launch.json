@@ -4,10 +4,9 @@
     {
       "type": "msedge",
       "request": "launch",
-      "name": "Launch Edge",
-      "url": "http://127.0.0.1:5500/index.html",
-      "webRoot": "${workspaceFolder}",
-      "userDataDir": false
+      "name": "Abrir el sitio en Edge (antes ejecutar npm run dev)",
+      "url": "http://localhost:3000",
+      "webRoot": "${workspaceFolder}"
     }
   ]
 }
