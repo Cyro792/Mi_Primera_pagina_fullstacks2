@@ -3,14 +3,13 @@ import { AnimatePresence, motion } from 'motion/react'
 import AvisoGuardado from './AvisoGuardado.jsx'
 import FormularioTarjeta from '../pago/FormularioTarjeta.jsx'
 import VistaTarjeta from '../pago/VistaTarjeta.jsx'
-import { useAuth } from '../../context/AuthContext.jsx'
 import { eliminarTarjeta, guardarTarjeta, listarTarjetas, marcarPredeterminada } from '../../services/tarjetas.js'
 import { describirTarjeta, detectarMarca, estaVencida, TARJETA_VACIA, textoVencimiento, validarTarjeta } from '../../utils/tarjeta.js'
 
 /** Tarjetas guardadas en la cuenta: agregar, elegir la predeterminada y eliminar. */
 export default function TarjetasGuardadas() {
-  const { usuario } = useAuth()
   const [tarjetas, setTarjetas] = useState(null)
+  const [error, setError] = useState('')
   const [agregando, setAgregando] = useState(false)
   const [nueva, setNueva] = useState(TARJETA_VACIA)
   const [errores, setErrores] = useState({})
@@ -19,13 +18,23 @@ export default function TarjetasGuardadas() {
 
   useEffect(() => {
     let vigente = true
-    listarTarjetas(usuario.email).then((lista) => {
-      if (vigente) setTarjetas(lista)
-    })
+    listarTarjetas()
+      .then((lista) => vigente && setTarjetas(lista))
+      .catch((problema) => vigente && setError(problema.message))
     return () => {
       vigente = false
     }
-  }, [usuario.email])
+  }, [])
+
+  /** Ejecuta una acción en el servidor y muestra el error si falla. */
+  const intentar = async (accion) => {
+    setError('')
+    try {
+      await accion()
+    } catch (problema) {
+      setError(problema.message)
+    }
+  }
 
   const cambiar = (campo, valor) => {
     setNueva((actual) => ({ ...actual, [campo]: valor }))
@@ -43,21 +52,30 @@ export default function TarjetasGuardadas() {
     const encontrados = validarTarjeta(nueva, { pedirCvv: false })
     setErrores(encontrados)
     if (Object.keys(encontrados).length > 0) return
-    const { tarjeta, duplicada } = await guardarTarjeta(usuario.email, nueva)
-    setTarjetas(await listarTarjetas(usuario.email))
-    cancelar()
-    setAviso(duplicada ? `${describirTarjeta(tarjeta)} ya estaba guardada` : `${describirTarjeta(tarjeta)} guardada`)
+    setError('')
+    try {
+      const { tarjeta, duplicada } = await guardarTarjeta(nueva)
+      setTarjetas(await listarTarjetas())
+      cancelar()
+      setAviso(duplicada ? `${describirTarjeta(tarjeta)} ya estaba guardada` : `${describirTarjeta(tarjeta)} guardada`)
+    } catch (problema) {
+      setErrores(problema.errores ?? {})
+      setError(problema.message)
+    }
   }
 
-  const predeterminar = async (tarjeta) => {
-    setTarjetas(await marcarPredeterminada(usuario.email, tarjeta.id))
-    setAviso(`${describirTarjeta(tarjeta)} es ahora tu tarjeta predeterminada`)
-  }
+  const predeterminar = (tarjeta) =>
+    intentar(async () => {
+      setTarjetas(await marcarPredeterminada(tarjeta.id))
+      setAviso(`${describirTarjeta(tarjeta)} es ahora tu tarjeta predeterminada`)
+    })
 
-  const eliminar = async (tarjeta) => {
+  const eliminar = (tarjeta) => {
     if (!window.confirm(`¿Eliminar la tarjeta ${describirTarjeta(tarjeta)}?`)) return
-    setTarjetas(await eliminarTarjeta(usuario.email, tarjeta.id))
-    setAviso(`${describirTarjeta(tarjeta)} eliminada`)
+    intentar(async () => {
+      setTarjetas(await eliminarTarjeta(tarjeta.id))
+      setAviso(`${describirTarjeta(tarjeta)} eliminada`)
+    })
   }
 
   return (
@@ -95,7 +113,8 @@ export default function TarjetasGuardadas() {
         )}
       </AnimatePresence>
 
-      {tarjetas === null && <p className="texto-suave" role="status">Cargando tus tarjetas…</p>}
+      {error && <div className="alert alert-danger small" role="alert">{error}</div>}
+      {tarjetas === null && !error && <p className="texto-suave" role="status">Cargando tus tarjetas…</p>}
       {tarjetas?.length === 0 && !agregando && (
         <div className="tarjeta tarjeta--suave text-center texto-suave">Aún no tienes tarjetas guardadas.</div>
       )}

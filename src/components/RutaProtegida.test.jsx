@@ -23,25 +23,32 @@ describe('RutaProtegida (restricción de acceso por rol)', () => {
     expect(screen.queryByText('Contenido solo para administradores')).not.toBeInTheDocument()
   })
 
-  it('con sesión pero sin el rol necesario muestra "Acceso restringido" y oculta el contenido', () => {
+  it('al recargar con sesión abierta espera a recuperarla antes de decidir', async () => {
+    renderConApp(protegida, { ...opciones, sesion: USUARIOS.admin })
+    expect(screen.getByRole('status')).toHaveTextContent('Recuperando tu sesión')
+    expect(await screen.findByText('Contenido solo para administradores')).toBeInTheDocument()
+  })
+
+  it('si la sesión guardada ya no es válida, envía al login', async () => {
+    localStorage.setItem('sanmarcos_sesion_abierta', '1')
+    renderConApp(protegida, opciones)
+    expect(await screen.findByText('Pantalla de login (venías de /admin)')).toBeInTheDocument()
+  })
+
+  it('con sesión pero sin el rol necesario muestra "Acceso restringido" y oculta el contenido', async () => {
     renderConApp(protegida, { ...opciones, sesion: USUARIOS.cliente })
-    expect(screen.getByRole('alert')).toHaveTextContent('Acceso restringido')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Acceso restringido')
     expect(screen.queryByText('Contenido solo para administradores')).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Ir a mi página de inicio' })).toHaveAttribute('href', '/tienda')
   })
 
-  it('una recepcionista tampoco puede entrar a una ruta solo de administrador', () => {
+  it('una recepcionista tampoco puede entrar a una ruta solo de administrador', async () => {
     renderConApp(protegida, { ...opciones, sesion: USUARIOS.recepcion })
-    expect(screen.getByRole('alert')).toHaveTextContent('Acceso restringido')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Acceso restringido')
   })
 
-  it('con el rol correcto muestra el contenido', () => {
-    renderConApp(protegida, { ...opciones, sesion: USUARIOS.admin })
-    expect(screen.getByText('Contenido solo para administradores')).toBeInTheDocument()
-  })
-
-  it('sin lista de roles basta con tener sesión iniciada', () => {
+  it('sin lista de roles basta con tener sesión iniciada', async () => {
     renderConApp(<RutaProtegida><p>Zona privada</p></RutaProtegida>, { ...opciones, sesion: USUARIOS.cliente })
-    expect(screen.getByText('Zona privada')).toBeInTheDocument()
+    expect(await screen.findByText('Zona privada')).toBeInTheDocument()
   })
 })

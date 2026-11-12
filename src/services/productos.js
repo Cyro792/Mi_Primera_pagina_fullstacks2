@@ -1,33 +1,36 @@
-// Acceso al catálogo de la tienda. Todas las funciones son asíncronas (devuelven una Promise)
-// porque así funcionarán cuando llamen a la API REST del backend:
-//   GET /api/v1/categorias, GET /api/v1/productos, GET /api/v1/productos/{id}
-// Por ahora leen el catálogo local, así que al integrar solo cambia el interior de este archivo.
-import { CATEGORIAS, PRODUCTOS } from '../data/catalogo.js'
-
-const ESPERA_MS = 150
-
-function responder(valor) {
-  return new Promise((resolve) => setTimeout(() => resolve(valor), ESPERA_MS))
-}
-
-function conCategoria(producto) {
-  const categoria = CATEGORIAS.find((c) => c.id === producto.categoriaId)
-  return { ...producto, categoriaNombre: categoria?.nombre ?? '' }
-}
+// Catálogo de la tienda (público, no necesita sesión):
+//   GET /api/v1/categorias   GET /api/v1/productos?categoriaId=&tipo=   GET /api/v1/productos/{id}
+// El ADMIN además lo administra: POST, PUT y DELETE /api/v1/productos.
+import { api, ApiError, consulta } from './api.js'
 
 export function listarCategorias() {
-  return responder(CATEGORIAS.map((c) => ({ ...c })))
+  return api('/categorias')
 }
 
-export function listarProductos({ categoriaId, tipo } = {}) {
-  const visibles = PRODUCTOS.filter(
-    (p) => p.activo && (!categoriaId || p.categoriaId === Number(categoriaId)) && (!tipo || p.tipo === tipo),
-  )
-  return responder(visibles.map(conCategoria))
+/** Productos activos. Con incluirInactivos (solo ADMIN) también los dados de baja. */
+export function listarProductos({ categoriaId, tipo, incluirInactivos } = {}) {
+  return api(`/productos${consulta({ categoriaId, tipo, incluirInactivos })}`)
 }
 
-/** Devuelve el producto o null si no existe (la API responderá 404). */
-export function obtenerProducto(id) {
-  const producto = PRODUCTOS.find((p) => p.id === Number(id) && p.activo)
-  return responder(producto ? conCategoria(producto) : null)
+/** Devuelve el producto o null si no existe o fue dado de baja (la API responde 404). */
+export async function obtenerProducto(id) {
+  try {
+    return await api(`/productos/${encodeURIComponent(id)}`)
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) return null
+    throw error
+  }
+}
+
+export function crearProducto(datos) {
+  return api('/productos', { metodo: 'POST', cuerpo: datos })
+}
+
+export function actualizarProducto(id, datos) {
+  return api(`/productos/${id}`, { metodo: 'PUT', cuerpo: datos })
+}
+
+/** Baja lógica: el producto deja de verse en la tienda, pero sigue en las boletas antiguas. */
+export function darDeBajaProducto(id) {
+  return api(`/productos/${id}`, { metodo: 'DELETE' })
 }

@@ -1,8 +1,7 @@
 import { useCallback, useState } from 'react'
 import Form from 'react-bootstrap/Form'
 import AvisoGuardado from './AvisoGuardado.jsx'
-import { useAuth } from '../../context/AuthContext.jsx'
-import { cambiarPassword } from '../../services/auth.js'
+import { cambiarPassword, validarCambioPassword } from '../../services/auth.js'
 
 const VACIO = { actual: '', nueva: '', confirmar: '' }
 
@@ -14,22 +13,29 @@ const CAMPOS = [
 
 /** Cambio de contraseña: pide la actual para confirmar que es el dueño de la cuenta. */
 export default function CambioPassword() {
-  const { usuario } = useAuth()
   const [valores, setValores] = useState(VACIO)
+  const [enviando, setEnviando] = useState(false)
   const [errores, setErrores] = useState({})
   const [aviso, setAviso] = useState('')
   const cerrarAviso = useCallback(() => setAviso(''), [])
 
-  const enviar = (evento) => {
+  const enviar = async (evento) => {
     evento.preventDefault()
-    const resultado = cambiarPassword(usuario.email, valores)
-    if (!resultado.ok) {
-      setErrores(resultado.errores)
-      return
+    const encontrados = validarCambioPassword(valores)
+    setErrores(encontrados)
+    if (Object.keys(encontrados).length > 0) return
+    setEnviando(true)
+    try {
+      // El servidor comprueba la contraseña actual y cierra la sesión en los demás dispositivos.
+      await cambiarPassword(valores)
+      setValores(VACIO)
+      setAviso('Contraseña actualizada. Cerramos tu sesión en los demás dispositivos.')
+    } catch (problema) {
+      // Si la contraseña actual no es correcta, el error se muestra bajo ese campo.
+      setErrores(Object.keys(problema.errores ?? {}).length ? problema.errores : { actual: problema.message })
+    } finally {
+      setEnviando(false)
     }
-    setErrores({})
-    setValores(VACIO)
-    setAviso('Contraseña actualizada')
   }
 
   return (
@@ -54,7 +60,7 @@ export default function CambioPassword() {
         ))}
       </div>
       <div className="d-flex flex-wrap align-items-center gap-3 mt-4">
-        <button type="submit" className="btn btn-vet">Cambiar contraseña</button>
+        <button type="submit" className="btn btn-vet" disabled={enviando}>{enviando ? 'Guardando…' : 'Cambiar contraseña'}</button>
         <AvisoGuardado mensaje={aviso} onCerrar={cerrarAviso} />
       </div>
     </form>

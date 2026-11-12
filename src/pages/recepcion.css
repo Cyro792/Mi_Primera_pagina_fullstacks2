@@ -1,37 +1,96 @@
-/* Ajustes responsive del panel de recepción (sus estilos base están en línea en el componente).
-   En pantallas angostas la barra lateral pasa arriba y las métricas se apilan. */
+/* Panel de recepción. */
+.recepcion {
+  display: flex;
+  min-height: 100vh;
+  font-family: system-ui, sans-serif;
+  background-color: #f4f6f8;
+}
+
+.recepcion-lateral {
+  width: 260px;
+  flex-shrink: 0;
+  background-color: #1e382b;
+  color: #fff;
+  padding: 2rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.recepcion-marca { margin-bottom: 2.5rem; }
+.recepcion-marca h1 { font-size: 1.6rem; color: #e2f0d9; margin: 0; font-weight: 600; }
+.recepcion-marca .recepcion-marca-dorado { color: #c5a059; font-style: italic; font-weight: 400; }
+.recepcion-marca p { font-size: 0.75rem; color: #a0b4a8; margin-top: 0.8rem; letter-spacing: 1px; }
+.recepcion-menu-activo { padding: 0.8rem 1rem; border-radius: 8px; background-color: #2d4d3c; font-weight: 500; }
+.recepcion-salir {
+  width: 100%;
+  padding: 0.8rem;
+  background: transparent;
+  border: 1px solid #4a6b58;
+  color: #e2f0d9;
+  border-radius: 20px;
+  cursor: pointer;
+}
+.recepcion-salir:hover { background: #2d4d3c; }
+
+.recepcion-principal { flex: 1; min-width: 0; padding: 2rem 3rem; }
+.recepcion-cabecera { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 2rem; }
+.recepcion-cabecera h2 { font-size: 1.5rem; color: #2c3e50; margin: 0; }
+.recepcion-cabecera span { font-size: 0.9rem; color: #7f8c8d; }
+
+.recepcion-metricas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-bottom: 2rem; }
+.recepcion-metrica { background: #fff; padding: 1.2rem; border-radius: 10px; border-left: 5px solid; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05); }
+.recepcion-metrica span { font-size: 0.8rem; color: #7f8c8d; font-weight: bold; }
+.recepcion-metrica h3 { font-size: 2rem; margin: 0.3rem 0 0; color: #2c3e50; }
+.recepcion-metrica--verde { border-left-color: #27ae60; }
+.recepcion-metrica--naranja { border-left-color: #f39c12; }
+.recepcion-metrica--azul { border-left-color: #2980b9; }
+
+.recepcion-lista { background: #fff; padding: 1.8rem; border-radius: 12px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); }
+.recepcion-lista-cabecera { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 1.5rem; }
+.recepcion-lista-cabecera h3 { margin: 0; color: #2c3e50; font-size: 1.25rem; }
+.recepcion-filas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.25rem; }
+.recepcion-fila { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 1rem; border-bottom: 1px solid #f0f0f0; }
+.recepcion-mascota { font-size: 1.05rem; color: #2c3e50; }
+.recepcion-dueno { color: #7f8c8d; margin-left: 0.5rem; }
+.recepcion-detalle { font-size: 0.85rem; color: #95a5a6; margin-top: 0.2rem; }
+.recepcion-acciones { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; justify-content: flex-end; }
+
+.recepcion-estado { padding: 0.3rem 0.8rem; border-radius: 12px; font-size: 0.8rem; font-weight: bold; color: #fff; }
+.recepcion-estado--pendiente { background: #f39c12; }
+.recepcion-estado--confirmada { background: #27ae60; }
+.recepcion-estado--completada { background: #2980b9; }
+.recepcion-estado--cancelada { background: #95a5a6; }
+
+.recepcion-boton { background: #ecf0f1; color: #2c3e50; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
+.recepcion-boton:hover { filter: brightness(0.95); }
+.recepcion-boton:disabled { opacity: 0.6; cursor: not-allowed; }
+.recepcion-boton--principal { background: #1e382b; color: #fff; padding: 0.7rem 1.2rem; border-radius: 6px; font-weight: 600; font-size: 0.95rem; }
+.recepcion-boton--verde { background: #27ae60; color: #fff; }
+.recepcion-boton--azul { background: #2980b9; color: #fff; }
+.recepcion-boton--rojo { background: #e74c3c; color: #fff; }
+
+.recepcion-modal-fondo { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); display: flex; justify-content: center; align-items: center; z-index: 1000; padding: 1rem; }
+.recepcion-modal { background: #fff; padding: 2rem; border-radius: 10px; width: 450px; max-width: 100%; max-height: 100%; overflow-y: auto; }
+.recepcion-modal h3 { margin-top: 0; color: #2c3e50; font-size: 1.25rem; }
+.recepcion-modal form { display: flex; flex-direction: column; gap: 0.8rem; }
+.recepcion-campo { display: flex; flex-direction: column; gap: 0.3rem; }
+.recepcion-campo label { font-size: 0.85rem; color: #2c3e50; font-weight: bold; }
+.recepcion-campo input,
+.recepcion-campo select { padding: 0.6rem; border-radius: 4px; border: 1px solid #ccc; width: 100%; box-sizing: border-box; }
+.recepcion-campo input[aria-invalid='true'] { border-color: #e74c3c; }
+.recepcion-error { color: #c0392b; font-size: 0.8rem; }
+.recepcion-dos-columnas { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.recepcion-nota { background: #f4f6f8; border-radius: 6px; padding: 0.75rem; font-size: 0.9rem; margin: 0; }
+.recepcion-modal-botones { display: flex; justify-content: flex-end; gap: 0.8rem; margin-top: 0.5rem; }
+
+/* En pantallas angostas la barra lateral pasa arriba y las métricas se apilan. */
 @media (max-width: 767.98px) {
-  .recepcion {
-    flex-direction: column;
-  }
-  .recepcion .recepcion-lateral {
-    width: 100% !important;
-    padding: 1.25rem 1.25rem !important;
-    flex-direction: row !important;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 1rem;
-  }
-  .recepcion .recepcion-lateral > div > div:first-child {
-    margin-bottom: 0.75rem !important;
-  }
-  .recepcion .recepcion-lateral > button {
-    width: auto !important;
-    padding-inline: 1.25rem !important;
-  }
-  .recepcion .recepcion-principal {
-    padding: 1.25rem 1rem !important;
-  }
-  .recepcion .recepcion-metricas {
-    grid-template-columns: 1fr !important;
-    gap: 0.75rem !important;
-  }
-  .recepcion .recepcion-fila {
-    flex-direction: column;
-    align-items: flex-start !important;
-    gap: 0.75rem;
-  }
-  .recepcion .recepcion-acciones {
-    flex-wrap: wrap;
-  }
+  .recepcion { flex-direction: column; }
+  .recepcion-lateral { width: 100%; padding: 1.25rem; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 1rem; }
+  .recepcion-marca { margin-bottom: 0.75rem; }
+  .recepcion-salir { width: auto; padding-inline: 1.25rem; }
+  .recepcion-principal { padding: 1.25rem 1rem; }
+  .recepcion-metricas { grid-template-columns: 1fr; gap: 0.75rem; }
+  .recepcion-fila { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+  .recepcion-acciones { justify-content: flex-start; }
 }

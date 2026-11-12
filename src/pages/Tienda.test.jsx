@@ -3,6 +3,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react'
 import Tienda from './Tienda.jsx'
 import DetalleProducto from './DetalleProducto.jsx'
 import { renderConApp } from '../testUtils.jsx'
+import { apiFalsa } from '../test/apiFalsa.js'
 
 const carritoGuardado = () => JSON.parse(localStorage.getItem('sanmarcos_carrito'))
 
@@ -12,6 +13,12 @@ describe('Tienda (catálogo)', () => {
     expect(screen.getByRole('status', { name: 'Cargando productos' })).toBeInTheDocument()
     expect(await screen.findByText('Consulta General')).toBeInTheDocument()
     expect(screen.getAllByRole('article')).toHaveLength(12)
+  })
+
+  it('si la API no responde muestra un aviso en vez de la tienda vacía', async () => {
+    apiFalsa().fallar('GET', '/productos', 0)
+    renderConApp(<Tienda />, { ruta: '/tienda' })
+    expect(await screen.findByRole('alert')).toHaveTextContent('No pudimos cargar la tienda')
   })
 
   it('con ?categoria=2 en la dirección muestra solo los alimentos', async () => {
@@ -81,6 +88,12 @@ describe('DetalleProducto (/producto/:id)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Agregar al carrito' }))
     await waitFor(() => expect(carritoGuardado()).toMatchObject([{ id: 9, cantidad: 3 }]))
     expect(screen.getByText(/Ya tienes 3 en tu carrito/)).toBeInTheDocument()
+  })
+
+  it('un producto dado de baja no se muestra (la API responde 404)', async () => {
+    apiFalsa().estado.productos.find((p) => p.id === 9).activo = false
+    renderConApp(<DetalleProducto />, opciones(9))
+    expect(await screen.findByRole('heading', { name: 'Producto no encontrado' })).toBeInTheDocument()
   })
 
   it('avisa cuando el producto no existe', async () => {

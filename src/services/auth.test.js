@@ -1,31 +1,22 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
+import { hayToken } from './api.js'
 import {
-  autenticar,
-  borrarSesion,
-  guardarSesion,
-  leerSesion,
-  obtenerCuentas,
-  registrarCuenta,
+  cambiarPassword,
+  destinoTrasLogin,
+  haySesionGuardada,
+  login,
+  logout,
+  recuperarSesion,
+  registrar,
   rutaInicialDe,
+  usuarioDesdeApi,
+  validarCambioPassword,
   validarLogin,
   validarRegistro,
 } from './auth.js'
+import { apiFalsa } from '../test/apiFalsa.js'
 
-// Almacenamiento falso en memoria: así las pruebas no tocan el localStorage real.
-function storageFalso(inicial) {
-  let guardado = inicial ?? null
-  return {
-    getItem: vi.fn(() => guardado),
-    setItem: vi.fn((_clave, valor) => {
-      guardado = valor
-    }),
-    removeItem: vi.fn(() => {
-      guardado = null
-    }),
-  }
-}
-
-describe('auth.js (login)', () => {
+describe('auth.js: validaciones del formulario', () => {
   it('validarLogin pide correo y contraseña', () => {
     expect(validarLogin({ email: '', password: '' })).toEqual({ email: 'Ingresa tu correo.', password: 'Ingresa tu contraseña.' })
   })
@@ -36,27 +27,28 @@ describe('auth.js (login)', () => {
     expect(errores.password).toContain('8 caracteres')
   })
 
-  it('autenticar acepta credenciales correctas y entrega el usuario con el rol de su cuenta', () => {
-    const resultado = autenticar({ email: ' Admin@sanmarcos.cl ', password: 'Admin123!' })
-    expect(resultado.ok).toBe(true)
-    expect(resultado.usuario).toEqual({ nombre: 'Administrador General', email: 'admin@sanmarcos.cl', rol: 'ADMIN' })
+  it('validarRegistro revisa nombre, correo, largo y confirmación de la contraseña', () => {
+    const errores = validarRegistro({ nombre: 'Al', email: 'x', password: '123', confirmar: '1234' })
+    expect(Object.keys(errores)).toEqual(['nombre', 'email', 'password', 'confirmar'])
+    expect(validarRegistro({ nombre: 'Luc Pérez', email: 'luc@correo.cl', password: 'Clave1234', confirmar: 'Clave1234' })).toEqual({})
   })
 
-  it('autenticar nunca devuelve la contraseña junto con el usuario', () => {
-    const { usuario } = autenticar({ email: 'recepcion@sanmarcos.cl', password: 'Recep123!' })
-    expect(usuario.rol).toBe('RECEPCIONISTA')
-    expect(usuario).not.toHaveProperty('password')
+  it('validarCambioPassword exige la actual, 8 caracteres, que sea distinta y que coincida', () => {
+    expect(validarCambioPassword({ actual: '', nueva: '123', confirmar: '' })).toEqual({
+      actual: 'Ingresa tu contraseña actual.',
+      nueva: 'La nueva contraseña debe tener al menos 8 caracteres.',
+      confirmar: 'Las contraseñas no coinciden.',
+    })
+    expect(validarCambioPassword({ actual: 'Clave1234', nueva: 'Clave1234', confirmar: 'Clave1234' }).nueva).toContain('distinta')
   })
 
-  it('autenticar rechaza una contraseña incorrecta', () => {
-    const resultado = autenticar({ email: 'admin@sanmarcos.cl', password: 'Incorrecta1' })
-    expect(resultado.ok).toBe(false)
-    expect(resultado.error).toContain('incorrectos')
-  })
-
-  it('autenticar acepta una lista de cuentas falsa (mock) inyectada', () => {
-    const cuentasFalsas = [{ nombre: 'Test', email: 'test@test.cl', password: 'Password1', rol: 'RECEPCIONISTA' }]
-    expect(autenticar({ email: 'test@test.cl', password: 'Password1' }, cuentasFalsas).usuario.rol).toBe('RECEPCIONISTA')
+  it('destinoTrasLogin vuelve a la página anterior solo si el rol puede verla', () => {
+    expect(destinoTrasLogin('CLIENTE', '/carrito')).toBe('/carrito')
+    expect(destinoTrasLogin('CLIENTE', '/mi-cuenta')).toBe('/mi-cuenta')
+    expect(destinoTrasLogin('ADMIN', '/mi-cuenta')).toBe('/admin')
+    expect(destinoTrasLogin('RECEPCIONISTA', '/admin')).toBe('/recepcion')
+    expect(destinoTrasLogin('ADMIN', '/recepcion')).toBe('/recepcion')
+    expect(destinoTrasLogin('CLIENTE', undefined)).toBe('/tienda')
   })
 
   it('rutaInicialDe envía a cada rol a su página', () => {
@@ -66,86 +58,69 @@ describe('auth.js (login)', () => {
   })
 })
 
-describe('auth.js (registro de cuentas)', () => {
-  const datosOk = { nombre: 'Luc Pérez', email: 'luc@correo.cl', password: 'Clave1234', confirmar: 'Clave1234' }
-
-  it('validarRegistro no devuelve errores con datos válidos', () => {
-    expect(validarRegistro(datosOk, [])).toEqual({})
+describe('auth.js: sesión con la API (JWT)', () => {
+  it('login entrega el usuario con el rol de su cuenta y guarda el token solo en memoria', async () => {
+    const usuario = await login({ email: ' Admin@sanmarcos.cl ', password: 'Admin123!' })
+    expect(usuario).toMatchObject({ id: 1, nombre: 'Administrador General', rol: 'ADMIN' })
+    expect(usuario).not.toHaveProperty('password')
+    expect(hayToken()).toBe(true)
+    // En el navegador solo queda la marca de "sesión abierta", nunca el token.
+    expect(haySesionGuardada()).toBe(true)
+    expect(JSON.stringify(localStorage)).not.toContain('token')
   })
 
-  it('validarRegistro detecta nombre corto, correo inválido y contraseña corta', () => {
-    const errores = validarRegistro({ nombre: 'L', email: 'mal', password: '123', confirmar: '123' }, [])
-    expect(Object.keys(errores).sort()).toEqual(['email', 'nombre', 'password'])
-  })
-
-  it('validarRegistro exige que las contraseñas coincidan', () => {
-    expect(validarRegistro({ ...datosOk, confirmar: 'Otra12345' }, []).confirmar).toContain('no coinciden')
-  })
-
-  it('validarRegistro rechaza correos ya registrados', () => {
-    const cuentas = [{ email: 'luc@correo.cl', password: 'x', rol: 'CLIENTE' }]
-    expect(validarRegistro({ ...datosOk, email: 'LUC@correo.cl' }, cuentas).email).toContain('Ya existe')
-  })
-
-  it('registrarCuenta guarda la cuenta normalizada y siempre con rol CLIENTE', () => {
-    const storage = storageFalso()
-    expect(registrarCuenta({ ...datosOk, email: ' LUC@Correo.cl ' }, storage).ok).toBe(true)
-    const guardadas = JSON.parse(storage.setItem.mock.calls.at(-1)[1])
-    expect(guardadas).toEqual([{ nombre: 'Luc Pérez', email: 'luc@correo.cl', password: 'Clave1234', rol: 'CLIENTE' }])
-  })
-
-  it('una cuenta registrada puede iniciar sesión y entra como cliente', () => {
-    const storage = storageFalso()
-    registrarCuenta(datosOk, storage)
-    const resultado = autenticar({ email: 'luc@correo.cl', password: 'Clave1234' }, obtenerCuentas(storage))
-    expect(resultado.ok).toBe(true)
-    expect(resultado.usuario.rol).toBe('CLIENTE')
-  })
-
-  it('nadie puede darse un rol del personal manipulando los datos guardados', () => {
-    const manipulado = JSON.stringify([{ nombre: 'Intruso', email: 'intruso@correo.cl', password: 'Clave1234', rol: 'ADMIN', role: 'administrador' }])
-    const cuentas = obtenerCuentas(storageFalso(manipulado))
-    expect(cuentas.find((c) => c.email === 'intruso@correo.cl').rol).toBe('CLIENTE')
-  })
-
-  it('obtenerCuentas ignora datos corruptos del storage y mantiene las cuentas demo', () => {
-    expect(obtenerCuentas(storageFalso('{esto no es json'))).toHaveLength(3)
-  })
-
-  it('registrarCuenta informa el error si el storage falla (por ejemplo, está lleno)', () => {
-    const storage = storageFalso()
-    storage.setItem.mockImplementation(() => {
-      throw new Error('QuotaExceededError')
+  it('login con credenciales incorrectas lanza el error de la API', async () => {
+    await expect(login({ email: 'admin@sanmarcos.cl', password: 'Incorrecta1' })).rejects.toMatchObject({
+      status: 401,
+      message: 'Correo o contraseña incorrectos.',
     })
-    const resultado = registrarCuenta(datosOk, storage)
-    expect(resultado.ok).toBe(false)
-    expect(resultado.error).toContain('No se pudo guardar')
-  })
-})
-
-describe('auth.js (persistencia de la sesión)', () => {
-  const ana = { nombre: 'Ana García', email: 'ana.garcia@correo.cl', rol: 'CLIENTE' }
-
-  it('la sesión guardada se recupera igual (lo que ocurre al recargar la página)', () => {
-    const storage = storageFalso()
-    guardarSesion(ana, storage)
-    expect(leerSesion(storage)).toEqual(ana)
+    expect(haySesionGuardada()).toBe(false)
   })
 
-  it('sin sesión guardada leerSesion devuelve null', () => {
-    expect(leerSesion(storageFalso())).toBeNull()
+  it('registrar crea una cuenta de CLIENTE e inicia la sesión', async () => {
+    const nuevo = await registrar({ nombre: ' Luc Pérez ', email: 'LUC@correo.cl', password: 'Clave1234' })
+    expect(nuevo).toMatchObject({ nombre: 'Luc Pérez', email: 'luc@correo.cl', rol: 'CLIENTE' })
+    expect(apiFalsa().llamadasA('POST', '/auth/registro')[0].cuerpo).not.toHaveProperty('rol')
   })
 
-  it('borrarSesion elimina la sesión', () => {
-    const storage = storageFalso()
-    guardarSesion(ana, storage)
-    borrarSesion(storage)
-    expect(leerSesion(storage)).toBeNull()
+  it('registrar con un correo ya usado lanza 409 con el error en el campo email', async () => {
+    await expect(registrar({ nombre: 'Otra Ana', email: 'ana.garcia@correo.cl', password: 'Clave1234' })).rejects.toMatchObject({
+      status: 409,
+      errores: { email: 'Ya existe una cuenta con ese correo.' },
+    })
   })
 
-  it('leerSesion descarta datos corruptos o con un rol que no existe', () => {
-    expect(leerSesion(storageFalso('{roto'))).toBeNull()
-    expect(leerSesion(storageFalso(JSON.stringify({ email: 'x@x.cl', rol: 'SUPERUSUARIO' })))).toBeNull()
-    expect(leerSesion(storageFalso(JSON.stringify({ rol: 'ADMIN' })))).toBeNull()
+  it('recuperarSesion usa la cookie de renovación (lo que pasa al recargar la página)', async () => {
+    apiFalsa().iniciarSesionCon('recepcion@sanmarcos.cl')
+    expect(await recuperarSesion()).toMatchObject({ email: 'recepcion@sanmarcos.cl', rol: 'RECEPCIONISTA' })
+  })
+
+  it('sin cookie válida, recuperarSesion falla y borra la marca de sesión', async () => {
+    localStorage.setItem('sanmarcos_sesion_abierta', '1')
+    await expect(recuperarSesion()).rejects.toMatchObject({ status: 401 })
+    expect(haySesionGuardada()).toBe(false)
+  })
+
+  it('logout avisa al servidor, olvida el token y borra la marca de sesión', async () => {
+    await login({ email: 'ana.garcia@correo.cl', password: 'Cliente123!' })
+    await logout()
+    expect(apiFalsa().llamadasA('POST', '/auth/logout')).toHaveLength(1)
+    expect(hayToken()).toBe(false)
+    expect(haySesionGuardada()).toBe(false)
+    expect(apiFalsa().estado.cookie).toBeNull()
+  })
+
+  it('cambiarPassword envía la actual y la nueva; si la actual no es correcta, el error viene en ese campo', async () => {
+    await login({ email: 'ana.garcia@correo.cl', password: 'Cliente123!' })
+    await expect(cambiarPassword({ actual: 'Otra12345', nueva: 'Nueva12345' })).rejects.toMatchObject({
+      errores: { actual: 'La contraseña actual no es correcta.' },
+    })
+    await cambiarPassword({ actual: 'Cliente123!', nueva: 'Nueva12345' })
+    await expect(login({ email: 'ana.garcia@correo.cl', password: 'Nueva12345' })).resolves.toMatchObject({ rol: 'CLIENTE' })
+  })
+
+  it('usuarioDesdeApi arma el avatar y deja vacíos los datos que faltan', () => {
+    const usuario = usuarioDesdeApi({ id: 7, nombre: 'Luc', email: 'l@c.cl', rol: 'CLIENTE', telefono: null, avatarIcono: '🐱', avatarColor: null })
+    expect(usuario).toMatchObject({ telefono: '', region: '', avatar: { icono: '🐱', color: '#2A6049' } })
   })
 })

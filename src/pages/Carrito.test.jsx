@@ -50,14 +50,14 @@ describe('Carrito de compras', () => {
     expect(screen.queryByRole('link', { name: 'Ir a pagar' })).not.toBeInTheDocument()
   })
 
-  it('el personal de la clínica no puede comprar con su cuenta', () => {
+  it('el personal de la clínica no puede comprar con su cuenta', async () => {
     renderConApp(<Carrito />, opciones({ sesion: USUARIOS.recepcion }))
+    expect(await screen.findByText(/cuenta de cliente/)).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Ir a pagar' })).not.toBeInTheDocument()
-    expect(screen.getByText(/cuenta de cliente/)).toBeInTheDocument()
   })
 
-  it('un cliente ve el botón "Ir a pagar", que lleva al paso de pago', () => {
+  it('un cliente ve el botón "Ir a pagar", que lleva al paso de pago', async () => {
     renderConApp(<Carrito />, opciones({ sesion: USUARIOS.cliente }))
-    expect(screen.getByRole('link', { name: 'Ir a pagar' })).toHaveAttribute('href', '/pago')
+    expect(await screen.findByRole('link', { name: 'Ir a pagar' })).toHaveAttribute('href', '/pago')
   })
 })

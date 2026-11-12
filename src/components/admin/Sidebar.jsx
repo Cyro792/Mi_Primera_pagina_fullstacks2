@@ -1,6 +1,7 @@
 export const SECCIONES = [
   { id: 'resumen', etiqueta: 'Resumen', icono: '◈' },
   { id: 'citas', etiqueta: 'Citas', icono: '◎' },
+  { id: 'productos', etiqueta: 'Productos', icono: '◇' },
   { id: 'usuarios', etiqueta: 'Usuarios', icono: '◉' },
 ]
 

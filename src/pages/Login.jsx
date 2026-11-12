@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { motion } from 'motion/react'
 import { useAuth } from '../context/AuthContext.jsx'
-import { rutaInicialDe, validarLogin, validarRegistro } from '../services/auth.js'
+import { destinoTrasLogin, validarLogin, validarRegistro } from '../services/auth.js'
 
 const SUAVE = [0.22, 1, 0.36, 1]
 
@@ -53,7 +53,7 @@ function Arte() {
 
 /** Inicio de sesión y registro. El rol lo define la cuenta: después de entrar se redirige según el rol. */
 export default function Login() {
-  const { usuario, iniciarSesion, registrar } = useAuth()
+  const { usuario, cargando, iniciarSesion, registrar } = useAuth()
   const navigate = useNavigate()
   const ubicacion = useLocation()
   const desde = ubicacion.state?.desde
@@ -65,11 +65,14 @@ export default function Login() {
   const [confirmar, setConfirmar] = useState('')
   const [errores, setErrores] = useState({})
   const [errorGeneral, setErrorGeneral] = useState('')
-  const [aviso, setAviso] = useState('')
+  const [enviando, setEnviando] = useState(false)
 
   // Si ya hay sesión (por ejemplo, tras recargar), no se muestra el formulario.
   if (usuario) {
-    return <Navigate to={desde ?? rutaInicialDe(usuario.rol)} replace />
+    return <Navigate to={destinoTrasLogin(usuario.rol, desde)} replace />
+  }
+  if (cargando) {
+    return <p className="p-5 texto-suave" role="status">Recuperando tu sesión…</p>
   }
 
   const esLogin = modo === 'login'
@@ -78,9 +81,21 @@ export default function Login() {
     setModo(esLogin ? 'registro' : 'login')
     setErrores({})
     setErrorGeneral('')
-    setAviso('')
     setPassword('')
     setConfirmar('')
+  }
+
+  /** Envía el formulario al backend. Los errores por campo que devuelve la API se muestran en cada campo. */
+  const enviarA = async (accion) => {
+    setEnviando(true)
+    try {
+      const conectado = await accion()
+      navigate(destinoTrasLogin(conectado.rol, desde), { replace: true })
+    } catch (error) {
+      setErrores(error.errores ?? {})
+      setErrorGeneral(error.message)
+      setEnviando(false)
+    }
   }
 
   const entrar = (e) => {
@@ -89,12 +104,7 @@ export default function Login() {
     setErrores(encontrados)
     setErrorGeneral('')
     if (Object.keys(encontrados).length > 0) return
-    const resultado = iniciarSesion({ email, password })
-    if (!resultado.ok) {
-      setErrorGeneral(resultado.error)
-      return
-    }
-    navigate(desde ?? rutaInicialDe(resultado.usuario.rol), { replace: true })
+    enviarA(() => iniciarSesion({ email, password }))
   }
 
   const crearCuenta = (e) => {
@@ -102,17 +112,9 @@ export default function Login() {
     const encontrados = validarRegistro({ nombre, email, password, confirmar })
     setErrores(encontrados)
     setErrorGeneral('')
-    setAviso('')
     if (Object.keys(encontrados).length > 0) return
-    const resultado = registrar({ nombre, email, password })
-    if (!resultado.ok) {
-      setErrorGeneral(resultado.error)
-      return
-    }
-    setModo('login')
-    setPassword('')
-    setConfirmar('')
-    setAviso('¡Cuenta creada! Ahora inicia sesión con tu correo y contraseña.')
+    // Al crear la cuenta el backend inicia la sesión de inmediato.
+    enviarA(() => registrar({ nombre, email, password }))
   }
 
   return (
@@ -145,14 +147,15 @@ export default function Login() {
             <Campo id="login-password" etiqueta="Contraseña" tipo="password" valor={password} onChange={setPassword} placeholder="••••••••••" error={errores.password} autoComplete={esLogin ? 'current-password' : 'new-password'} />
             {!esLogin && <Campo id="login-confirmar" etiqueta="Confirmar contraseña" tipo="password" valor={confirmar} onChange={setConfirmar} placeholder="••••••••••" error={errores.confirmar} autoComplete="new-password" />}
 
-            {aviso && <div role="status" className="login-aviso">{aviso}</div>}
             {errorGeneral && <div role="alert" className="login-error">{errorGeneral}</div>}
 
-            <button type="submit" className="login-boton">{esLogin ? 'Iniciar sesión' : 'Crear cuenta'}</button>
+            <button type="submit" className="login-boton" disabled={enviando}>
+              {enviando ? 'Un momento…' : esLogin ? 'Iniciar sesión' : 'Crear cuenta'}
+            </button>
 
             <div className="login-separador"><span>O</span></div>
 
-            <button type="button" className="login-boton login-boton--secundario" onClick={cambiarModo}>
+            <button type="button" className="login-boton login-boton--secundario" onClick={cambiarModo} disabled={enviando}>
               {esLogin ? 'Crear una cuenta' : 'Ya tengo una cuenta'}
             </button>
           </form>

@@ -5,7 +5,7 @@ import Accordion from 'react-bootstrap/Accordion'
 import Table from 'react-bootstrap/Table'
 import Aparecer from '../components/animaciones/Aparecer.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
-import { listarBoletasDe } from '../services/boletas.js'
+import { listarMisBoletas } from '../services/boletas.js'
 import { formatoCLP } from '../utils/stats.js'
 import { describirTarjeta } from '../utils/tarjeta.js'
 
@@ -15,16 +15,17 @@ const formatoFecha = new Intl.DateTimeFormat('es-CL', { dateStyle: 'long', timeS
 export default function MisCompras() {
   const { usuario } = useAuth()
   const [boletas, setBoletas] = useState(null)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     let vigente = true
-    listarBoletasDe(usuario.email).then((lista) => {
-      if (vigente) setBoletas(lista)
-    })
+    listarMisBoletas()
+      .then((lista) => vigente && setBoletas(lista))
+      .catch((problema) => vigente && setError(problema.message))
     return () => {
       vigente = false
     }
-  }, [usuario.email])
+  }, [usuario.id])
 
   return (
     <section className="seccion">
@@ -32,7 +33,8 @@ export default function MisCompras() {
         <p className="sobretitulo">Tu cuenta</p>
         <h1 className="font-display mb-4">Mis compras</h1>
 
-        {boletas === null && <p className="texto-suave" role="status">Cargando tus compras…</p>}
+        {error && <div className="tarjeta text-center texto-suave" role="alert">No pudimos cargar tus compras: {error}</div>}
+        {boletas === null && !error && <p className="texto-suave" role="status">Cargando tus compras…</p>}
 
         {boletas?.length === 0 && (
           <div className="tarjeta text-center">
@@ -49,6 +51,7 @@ export default function MisCompras() {
                   <Accordion.Header>
                     <span className="fw-semibold me-3">Boleta N° {boleta.id}</span>
                     <span className="texto-suave small me-auto">{formatoFecha.format(new Date(boleta.fecha))}</span>
+                    {boleta.estado === 'ANULADA' && <span className="insignia insignia--alerta me-3">Anulada</span>}
                     <span className="fw-semibold me-3">{formatoCLP(boleta.total)}</span>
                   </Accordion.Header>
                   <Accordion.Body>

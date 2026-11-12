@@ -48,8 +48,8 @@ export default function Navbar() {
 
   const salir = () => {
     cerrar()
-    cerrarSesion()
     navigate('/')
+    cerrarSesion()
   }
 
   return (

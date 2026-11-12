@@ -1,10 +1,12 @@
+import { ETIQUETA_ESTADO } from '../../services/citas.js'
+
 const CLASES = {
-  Pendiente: 'text-bg-warning',
-  Confirmada: 'text-bg-primary',
-  Completada: 'text-bg-success',
-  Cancelada: 'text-bg-secondary',
+  PENDIENTE: 'text-bg-warning',
+  CONFIRMADA: 'text-bg-primary',
+  COMPLETADA: 'text-bg-success',
+  CANCELADA: 'text-bg-secondary',
 }
 
 export default function EstadoBadge({ estado }) {
-  return <span className={`badge ${CLASES[estado] ?? 'text-bg-light'}`}>{estado}</span>
+  return <span className={`badge ${CLASES[estado] ?? 'text-bg-light'}`}>{ETIQUETA_ESTADO[estado] ?? estado}</span>
 }

@@ -21,12 +21,18 @@ Además:
 
 ## Cómo ejecutar
 
+El frontend necesita el backend (`vetsm-backend`) corriendo en <http://localhost:8080>. Primero se
+levanta el backend (ver su README) y después:
+
 ```bash
 npm install
 npm run dev
 ```
 
-El sitio queda en <http://localhost:3000>.
+El sitio queda en <http://localhost:3000>. En desarrollo, Vite redirige las llamadas a `/api` al
+backend (proxy en `vite.config.js`): así el navegador ve un solo sitio, no hay problemas de CORS y la
+cookie de la sesión funciona igual que en producción, donde Nginx hace lo mismo. Si el backend corre
+en otra dirección, se indica con la variable `VITE_PROXY_API` (por ejemplo `http://localhost:9090`).
 
 | Comando | Qué hace |
 |---|---|
@@ -62,27 +68,53 @@ src/
 │   ├── pago/         Tarjeta animada, formulario de tarjeta y logos de marcas
 │   └── animaciones/  Componentes de animación (aparecer, cascada, huellas, confeti, vuelo al carrito)
 ├── context/          Estado global: sesión (AuthContext) y carrito (CarritoContext)
-├── data/             Catálogo local de la tienda
+├── data/             Ícono y color de cada producto (presentación del catálogo)
 ├── pages/            Una página por ruta
-├── services/         Acceso a datos: auth, perfil, productos, tarjetas, pagos, boletas y reservas
+├── services/         Llamadas a la API REST: cliente HTTP (api.js), auth, perfil, productos,
+│                     tarjetas, boletas, citas y administración
+├── test/             API falsa en memoria para las pruebas
 ├── utils/            Funciones puras: carrito, tarjetas, métricas, validaciones y fechas
 ├── App.jsx           Rutas de la aplicación
 └── main.jsx          Punto de entrada
 ```
 
+## Integración con el backend
+
+Todos los datos vienen de la API REST del backend (`/api/v1`, documentada en Swagger). Las
+llamadas se hacen con `fetch` desde `src/services/`; cada archivo corresponde a un recurso:
+
+| Servicio | Endpoints | Usado en |
+|---|---|---|
+| `auth.js` | `POST /auth/login`, `/auth/registro`, `/auth/refresh`, `/auth/logout`, `PUT /perfil/password` | Login, registro, sesión, cambio de contraseña |
+| `perfil.js` | `PUT /perfil` | Mi cuenta → Perfil |
+| `productos.js` | `GET /categorias`, `GET/POST/PUT/DELETE /productos` | Tienda, detalle, panel de administración |
+| `tarjetas.js` | `GET/POST /tarjetas`, `PATCH /tarjetas/{id}/predeterminada`, `DELETE /tarjetas/{id}` | Pago, Mi cuenta → Tarjetas |
+| `boletas.js` | `POST /boletas`, `GET /boletas/mias` | Pago, Mis compras |
+| `citas.js` | `POST/GET /citas`, `PUT /citas/{id}`, `PATCH /citas/{id}/estado`, `DELETE /citas/{id}` | Formulario de cita, paneles |
+| `admin.js` | `GET /reportes/resumen`, `GET/POST /usuarios`, `PATCH /usuarios/{id}/activo` | Panel de administración |
+
+`src/services/api.js` es el cliente HTTP común: agrega el token, convierte los errores del backend
+(`{ status, mensaje, errores }`) en `ApiError` para mostrarlos en pantalla (los errores por campo
+aparecen bajo cada campo del formulario) y renueva la sesión cuando el token vence.
+
 ## Sesión y permisos
 
 - Al iniciar sesión el rol lo define la cuenta: el usuario no elige su perfil. Cada rol entra a
   su página (`ADMIN` → `/admin`, `RECEPCIONISTA` → `/recepcion`, `CLIENTE` → `/tienda`).
-- La sesión se guarda en el navegador, así que **no se pierde al recargar la página**.
+- La sesión usa **JWT** (Spring Security en el backend):
+  - El **token de acceso** dura 15 minutos y se guarda **solo en memoria** (no en `localStorage`),
+    así un script malicioso no lo puede leer. Viaja en la cabecera `Authorization: Bearer ...`.
+  - El **token de renovación** lo guarda el navegador en una cookie `HttpOnly` que JavaScript no puede
+    leer. Al recargar la página, la aplicación pide `POST /auth/refresh` y recupera la sesión: por
+    eso **la sesión no se pierde al recargar**.
+  - Si una petición responde 401 porque el token venció, se renueva y se repite sola. Si varias
+    peticiones vencen a la vez, se hace una sola renovación (cada cookie sirve una vez).
+  - En el navegador solo queda la marca `sanmarcos_sesion_abierta` (sin datos sensibles), que
+    además sincroniza el cierre de sesión entre pestañas.
 - `RutaProtegida` envía al login a quien no tiene sesión (y lo devuelve después a la página que
-  quería ver) y muestra "Acceso restringido" a quien no tiene el rol necesario.
-- El registro público solo crea cuentas de cliente.
-
-> **Estado actual:** mientras no se conecte el backend, las cuentas, la sesión, el carrito y las
-> compras se guardan en el `localStorage` del navegador y el pago es simulado. Los servicios en
-> `src/services/` ya son asíncronos, así que al integrar el backend (API REST con JWT) solo cambia
-> su contenido.
+  quería ver, si su rol puede verla) y muestra "Acceso restringido" a quien no tiene el rol necesario.
+  Es solo la protección visual: **la API revisa el rol en cada petición**.
+- El registro público solo crea cuentas de cliente (el backend no acepta un rol en el registro).
 
 ### Cuentas de demostración
 
@@ -92,18 +124,20 @@ src/
 | Recepcionista | `recepcion@sanmarcos.cl` | `Recep123!` |
 | Cliente | `ana.garcia@correo.cl` | `Cliente123!` |
 
-Solo existen en esta versión de demostración; no son credenciales reales.
+Las crea el backend al iniciar con el perfil de desarrollo; no son credenciales reales.
 
 ## Tienda, carrito y pago
 
 - El catálogo tiene servicios de la clínica (sin stock) y productos (con stock).
-- El carrito se guarda en el navegador y no permite superar el stock de un producto.
+- El carrito se guarda en el navegador (no se pierde al recargar) y no permite superar el stock.
+- Al pagar se envían solo los productos y las cantidades: el servidor toma los precios de la base de
+  datos, descuenta el stock y toma el cliente del token, así nadie puede cambiar lo que paga.
 - En `/pago` el cliente elige una tarjeta guardada (solo se le pide el CVV) o ingresa una nueva,
   y puede guardarla en su cuenta. Se valida el número con el algoritmo de Luhn, la marca
   (Visa, Mastercard, American Express, Diners Club), el vencimiento y el largo del CVV.
 - Al aprobarse el pago se genera una boleta con su detalle y el medio de pago, visible en "Mis compras".
 
-**El pago es simulado** (`src/services/pagos.js`): no se conecta a ningún banco. Para probar se usan
+**El pago es simulado** (en el backend, `PagoService`): no se conecta a ningún banco. Para probar se usan
 números de prueba publicados por las marcas, con cualquier vencimiento futuro:
 
 | Número | Resultado |
@@ -116,8 +150,8 @@ números de prueba publicados por las marcas, con cualquier vencimiento futuro:
 ### Seguridad de las tarjetas
 
 - **Nunca se guarda el número completo ni el código de seguridad (CVV).** De una tarjeta solo se
-  conservan la marca, los últimos 4 dígitos, el titular y el vencimiento (`datosSeguros` en
-  `src/utils/tarjeta.js`). Las pruebas verifican que el número completo no quede almacenado.
+  conservan la marca, los últimos 4 dígitos, el titular y el vencimiento. El frontend valida la
+  tarjeta antes de enviarla y el backend la vuelve a validar.
 - El CVV se pide en cada compra y se borra del formulario después de cada intento.
 - En producción, el cobro lo haría una pasarela de pago certificada (PCI DSS), que entrega un
   token en vez de los datos de la tarjeta; el backend guardaría solo ese token y los datos seguros.
@@ -146,3 +180,11 @@ Sección de personalización para clientes (`/mi-cuenta`):
 - Transición suave entre páginas.
 
 Quien tiene activada la opción "reducir movimiento" en su sistema no ve las animaciones decorativas.
+
+## Pruebas
+
+`npm test` ejecuta las pruebas con Vitest y Testing Library. Para no depender del servidor, las
+pruebas usan una **API falsa** (`src/test/apiFalsa.js`) que reemplaza `fetch` y responde como el
+backend: los mismos datos iniciales, las reglas principales (roles, stock, transiciones de las citas,
+tarjeta rechazada) y el mismo formato de error. Así cada prueba recorre el código real de las
+páginas, los contextos y los servicios.

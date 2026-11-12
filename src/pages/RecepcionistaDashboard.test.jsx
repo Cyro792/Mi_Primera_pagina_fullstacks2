@@ -1,82 +1,111 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import RecepcionistaDashboard from './RecepcionistaDashboard.jsx'
+import RutaProtegida from '../components/RutaProtegida.jsx'
+import { renderConApp, USUARIOS } from '../testUtils.jsx'
+import { apiFalsa } from '../test/apiFalsa.js'
 
-describe('RecepcionistaDashboard (panel de recepción)', () => {
-  beforeEach(() => {
-    // Sembrar datos de prueba en localStorage para que db.js los consuma.
-    const reservasIniciales = [
-      { id: 1, mascota: 'Pepe', dueno: 'Ana García', telefono: '+56 9 8765 4321', fecha: '2026-10-18', hora: '09:30', servicio: 'Consulta General', estado: 'Confirmada' },
-      { id: 2, mascota: 'Luna', dueno: 'Pedro Soto', telefono: '+56 9 1122 3344', fecha: '2026-10-18', hora: '11:00', servicio: 'Vacunación', estado: 'Pendiente' },
-    ]
-    const serviciosIniciales = [
-      { id: 1, nombre: 'Consulta General' },
-      { id: 2, nombre: 'Vacunación' },
-    ]
-    localStorage.setItem('san_marcos_reservas', JSON.stringify(reservasIniciales))
-    localStorage.setItem('san_marcos_servicios', JSON.stringify(serviciosIniciales))
-  })
+async function abrirPanel(onLogout = vi.fn()) {
+  renderConApp(
+    <RutaProtegida roles={['ADMIN', 'RECEPCIONISTA']}>
+      <RecepcionistaDashboard onLogout={onLogout} />
+    </RutaProtegida>,
+    { ruta: '/recepcion', path: '/recepcion', sesion: USUARIOS.recepcion },
+  )
+  await screen.findByText('Pepe')
+  return onLogout
+}
+const fila = (mascota) => screen.getByText(mascota).closest('li')
 
-  it('1. Debe renderizar el panel de recepción sin lanzar errores', () => {
-    const { container } = render(<RecepcionistaDashboard />)
-    expect(container).toBeTruthy()
-  })
-
-  it('2. Debe mostrar los títulos del panel de recepción', () => {
-    render(<RecepcionistaDashboard />)
-    expect(screen.getAllByRole('heading').length).toBeGreaterThan(0)
+describe('RecepcionistaDashboard (panel de recepción con la API)', () => {
+  it('1. Debe mostrar los títulos del panel y la sesión de la recepcionista', async () => {
+    await abrirPanel()
     expect(screen.getByRole('heading', { name: 'Gestión de Reservas' })).toBeInTheDocument()
+    expect(screen.getByText('Camila Rojas')).toBeInTheDocument()
   })
 
-  it('3. Debe visualizar el botón para crear una nueva reserva', () => {
-    render(<RecepcionistaDashboard />)
-    expect(screen.getByRole('button', { name: /\+ Nueva Reserva/i })).toBeInTheDocument()
+  it('2. Debe listar las citas que entrega la API (Pepe, Luna y Thor)', async () => {
+    await abrirPanel()
+    expect(screen.getByText('Luna')).toBeInTheDocument()
+    expect(screen.getByText('Thor')).toBeInTheDocument()
+    expect(apiFalsa().llamadasA('GET', '/citas')).toHaveLength(1)
   })
 
-  it('4. Debe visualizar el botón para cerrar la sesión actual', () => {
-    render(<RecepcionistaDashboard />)
-    expect(screen.getByRole('button', { name: /Cerrar sesión/i })).toBeInTheDocument()
+  it('3. Debe calcular las métricas: citas de hoy, pendientes y por atender', async () => {
+    await abrirPanel()
+    const metrica = (texto) => screen.getByText(texto).nextElementSibling.textContent
+    expect(metrica('CITAS DE HOY')).toBe('1')
+    expect(metrica('PENDIENTES')).toBe('1')
+    expect(metrica('POR ATENDER')).toBe('2')
   })
 
-  it('5. Debe abrir el formulario al hacer clic en el botón de nueva reserva', () => {
-    render(<RecepcionistaDashboard />)
+  it('4. Confirmar una cita pendiente la guarda en el servidor', async () => {
+    await abrirPanel()
+    fireEvent.click(within(fila('Luna')).getByRole('button', { name: 'Confirmar' }))
+    await waitFor(() => expect(within(fila('Luna')).queryByRole('button', { name: 'Confirmar' })).not.toBeInTheDocument())
+    expect(apiFalsa().estado.citas.find((c) => c.id === 2).estado).toBe('CONFIRMADA')
+    expect(within(fila('Luna')).getByRole('button', { name: 'Marcar atendida' })).toBeInTheDocument()
+  })
+
+  it('5. Una cita completada no se puede editar, cancelar ni eliminar', async () => {
+    await abrirPanel()
+    expect(within(fila('Thor')).queryAllByRole('button')).toHaveLength(0)
+  })
+
+  it('6. Crea una reserva nueva con los servicios que entrega la API', async () => {
+    await abrirPanel()
     fireEvent.click(screen.getByRole('button', { name: /\+ Nueva Reserva/i }))
-    expect(screen.getByRole('heading', { name: 'Nueva Reserva de Atención' })).toBeInTheDocument()
+    const modal = screen.getByRole('dialog', { name: 'Nueva Reserva de Atención' })
+    expect(within(modal).getAllByRole('option')).toHaveLength(6)
+
+    fireEvent.change(within(modal).getByLabelText('Nombre de la Mascota:'), { target: { value: 'Michi' } })
+    fireEvent.change(within(modal).getByLabelText('Nombre del Dueño:'), { target: { value: 'Luc Pérez' } })
+    fireEvent.change(within(modal).getByLabelText('Teléfono de contacto:'), { target: { value: '+56 9 1111 2222' } })
+    fireEvent.change(within(modal).getByLabelText('Hora:'), { target: { value: '18:45' } })
+    fireEvent.change(within(modal).getByLabelText('Servicio:'), { target: { value: '4' } })
+    fireEvent.click(within(modal).getByRole('button', { name: 'Guardar Reserva' }))
+
+    expect(await screen.findByText('Michi')).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(apiFalsa().llamadasA('POST', '/citas')[0].cuerpo).toMatchObject({ nombreMascota: 'Michi', servicioId: 4, hora: '18:45' })
   })
 
-  it('6. Debe desplegar la tarjeta de métricas con las citas programadas de hoy', () => {
-    render(<RecepcionistaDashboard />)
-    expect(screen.getByText(/CITAS DE HOY/i)).toBeInTheDocument()
+  it('7. Si el horario está ocupado muestra el mensaje del servidor en el formulario', async () => {
+    await abrirPanel()
+    const cita = apiFalsa().estado.citas[0]
+    fireEvent.click(screen.getByRole('button', { name: /\+ Nueva Reserva/i }))
+    const modal = screen.getByRole('dialog')
+    fireEvent.change(within(modal).getByLabelText('Nombre de la Mascota:'), { target: { value: 'Michi' } })
+    fireEvent.change(within(modal).getByLabelText('Nombre del Dueño:'), { target: { value: 'Luc' } })
+    fireEvent.change(within(modal).getByLabelText('Teléfono de contacto:'), { target: { value: '+56 9 1111 2222' } })
+    fireEvent.change(within(modal).getByLabelText('Fecha:'), { target: { value: cita.fecha } })
+    fireEvent.change(within(modal).getByLabelText('Hora:'), { target: { value: cita.hora } })
+    fireEvent.click(within(modal).getByRole('button', { name: 'Guardar Reserva' }))
+    expect(await within(modal).findByRole('alert')).toHaveTextContent('Ya hay una cita agendada')
   })
 
-  it('7. Debe desplegar la sección de citas o solicitudes pendientes', () => {
-    render(<RecepcionistaDashboard />)
-    expect(screen.getByText(/PENDIENTES/i)).toBeInTheDocument()
+  it('8. Editar una cita de una mascota registrada conserva la mascota', async () => {
+    await abrirPanel()
+    fireEvent.click(within(fila('Pepe')).getByRole('button', { name: 'Editar / Cambiar' }))
+    const modal = screen.getByRole('dialog', { name: 'Editar Reserva' })
+    expect(within(modal).getByText(/Mascota registrada/)).toBeInTheDocument()
+    fireEvent.change(within(modal).getByLabelText('Hora:'), { target: { value: '16:00' } })
+    fireEvent.click(within(modal).getByRole('button', { name: 'Guardar Reserva' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(apiFalsa().llamadasA('PUT', '/citas/1')[0].cuerpo).toMatchObject({ mascotaId: 1, hora: '16:00' })
   })
 
-  it('8. Debe ejecutar la función onLogout enviada por props al hacer clic en cerrar sesión', () => {
-    const mockLogout = vi.fn()
-    render(<RecepcionistaDashboard onLogout={mockLogout} />)
+  it('9. Eliminar pide confirmación y borra la cita en el servidor', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    await abrirPanel()
+    fireEvent.click(within(fila('Luna')).getByRole('button', { name: 'Eliminar' }))
+    await waitFor(() => expect(screen.queryByText('Luna')).not.toBeInTheDocument())
+    expect(apiFalsa().estado.citas.some((c) => c.id === 2)).toBe(false)
+  })
+
+  it('10. Debe ejecutar onLogout al hacer clic en cerrar sesión', async () => {
+    const onLogout = await abrirPanel()
     fireEvent.click(screen.getByRole('button', { name: /Cerrar sesión/i }))
-    expect(mockLogout).toHaveBeenCalled()
-  })
-
-  it('9. Debe listar en pantalla a los pacientes agendados como Pepe y Luna', () => {
-    render(<RecepcionistaDashboard />)
-    expect(screen.getByText(/Pepe/i)).toBeInTheDocument()
-    expect(screen.getByText(/Luna/i)).toBeInTheDocument()
-  })
-
-  it('10. Debe permitir la lectura de datos desde localStorage', () => {
-    const datos = JSON.parse(localStorage.getItem('san_marcos_reservas'))
-    expect(datos).toHaveLength(2)
-  })
-
-  it('11. Confirmar una reserva pendiente cambia su estado y lo guarda', () => {
-    render(<RecepcionistaDashboard />)
-    fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }))
-    expect(screen.queryByRole('button', { name: 'Confirmar' })).not.toBeInTheDocument()
-    const guardadas = JSON.parse(localStorage.getItem('san_marcos_reservas'))
-    expect(guardadas.find((r) => r.id === 2).estado).toBe('Confirmada')
+    expect(onLogout).toHaveBeenCalled()
   })
 })

@@ -28,14 +28,17 @@ export default function Tienda() {
   const [categorias, setCategorias] = useState([])
   const [productos, setProductos] = useState(null)
   const [texto, setTexto] = useState('')
+  const [error, setError] = useState('')
 
   useEffect(() => {
     let vigente = true
-    Promise.all([listarCategorias(), listarProductos()]).then(([cats, prods]) => {
-      if (!vigente) return
-      setCategorias(cats)
-      setProductos(prods)
-    })
+    Promise.all([listarCategorias(), listarProductos()])
+      .then(([cats, prods]) => {
+        if (!vigente) return
+        setCategorias(cats)
+        setProductos(prods)
+      })
+      .catch((problema) => vigente && setError(problema.message))
     return () => {
       vigente = false
     }
@@ -87,7 +90,9 @@ export default function Tienda() {
             />
           </div>
 
-          {productos === null ? (
+          {error ? (
+            <div className="tarjeta text-center texto-suave" role="alert">No pudimos cargar la tienda. {error}</div>
+          ) : productos === null ? (
             <Cargando />
           ) : visibles.length === 0 ? (
             <p className="text-center texto-suave py-5">No encontramos productos que coincidan con tu búsqueda.</p>

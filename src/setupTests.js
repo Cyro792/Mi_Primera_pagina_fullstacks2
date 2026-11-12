@@ -1,7 +1,9 @@
 import '@testing-library/jest-dom'
-import { afterEach, vi } from 'vitest'
+import { afterEach, beforeEach, vi } from 'vitest'
 import { cleanup } from '@testing-library/react'
 import { MotionGlobalConfig } from 'motion/react'
+import { guardarToken } from './services/api.js'
+import { instalarApiFalsa } from './test/apiFalsa.js'
 
 // En las pruebas las animaciones terminan al instante: así no hay que esperarlas.
 MotionGlobalConfig.skipAnimations = true
@@ -48,8 +50,14 @@ if (!window.matchMedia) {
 window.scrollTo = () => {}
 Element.prototype.scrollIntoView = () => {}
 
+// Cada prueba parte con una API falsa nueva (los mismos datos iniciales que el backend) y sin sesión.
+beforeEach(() => {
+  instalarApiFalsa()
+})
+
 afterEach(() => {
   cleanup()
   localStorage.clear()
+  guardarToken(null)
   vi.restoreAllMocks()
 })

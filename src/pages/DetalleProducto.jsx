@@ -22,16 +22,25 @@ function Detalle({ id }) {
   // undefined = cargando, null = no existe.
   const [producto, setProducto] = useState(undefined)
   const [cantidad, setCantidad] = useState(1)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     let vigente = true
-    obtenerProducto(id).then((encontrado) => {
-      if (vigente) setProducto(encontrado)
-    })
+    obtenerProducto(id)
+      .then((encontrado) => vigente && setProducto(encontrado))
+      .catch((problema) => vigente && setError(problema.message))
     return () => {
       vigente = false
     }
   }, [id])
+
+  if (error) {
+    return (
+      <Container className="contenedor seccion text-center texto-suave" role="alert">
+        No pudimos cargar el producto. {error}
+      </Container>
+    )
+  }
 
   if (producto === undefined) {
     return (

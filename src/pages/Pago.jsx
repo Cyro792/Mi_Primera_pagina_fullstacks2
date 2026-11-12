@@ -12,9 +12,8 @@ import LogoMarca from '../components/pago/LogoMarca.jsx'
 import VistaTarjeta from '../components/pago/VistaTarjeta.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useCarrito } from '../context/CarritoContext.jsx'
-import { crearBoleta } from '../services/boletas.js'
-import { procesarPago } from '../services/pagos.js'
-import { guardarTarjeta, listarTarjetas } from '../services/tarjetas.js'
+import { comprar } from '../services/boletas.js'
+import { listarTarjetas } from '../services/tarjetas.js'
 import { formatoCLP } from '../utils/stats.js'
 import { detectarMarca, estaVencida, MARCAS, soloDigitos, TARJETA_VACIA, textoVencimiento, validarCvv, validarTarjeta } from '../utils/tarjeta.js'
 
@@ -48,6 +47,7 @@ function OpcionMetodo({ activa, deshabilitada, onElegir, children }) {
 export default function Pago() {
   const { usuario } = useAuth()
   const { items, total, cantidad, vaciar } = useCarrito()
+  const [errorCarga, setErrorCarga] = useState('')
   const [contenedor, animar] = useAnimate()
 
   const [tarjetas, setTarjetas] = useState(null)
@@ -63,17 +63,24 @@ export default function Pago() {
 
   useEffect(() => {
     let vigente = true
-    listarTarjetas(usuario.email).then((lista) => {
-      if (!vigente) return
-      setTarjetas(lista)
-      const preferida = lista.find((t) => t.predeterminada && !estaVencida(t)) ?? lista.find((t) => !estaVencida(t))
-      setSeleccion(preferida?.id ?? NUEVA)
-      setGuardarNueva(lista.length === 0)
-    })
+    listarTarjetas()
+      .then((lista) => {
+        if (!vigente) return
+        setTarjetas(lista)
+        const preferida = lista.find((t) => t.predeterminada && !estaVencida(t)) ?? lista.find((t) => !estaVencida(t))
+        setSeleccion(preferida?.id ?? NUEVA)
+        setGuardarNueva(lista.length === 0)
+      })
+      .catch((error) => {
+        if (!vigente) return
+        // Sin la lista igual se puede pagar con una tarjeta nueva.
+        setTarjetas([])
+        setErrorCarga(error.message)
+      })
     return () => {
       vigente = false
     }
-  }, [usuario.email])
+  }, [usuario.id])
 
   if (boleta) return <CompraExitosa boleta={boleta} />
   if (items.length === 0) return <Navigate to="/carrito" replace />
@@ -111,13 +118,15 @@ export default function Pago() {
 
     setProcesando(true)
     try {
-      const pago = await procesarPago(guardada ? { tarjetaGuardada: guardada } : { tarjeta: nueva }, total)
-      const creada = await crearBoleta({ cliente: usuario, items, pago })
-      if (!guardada && guardarNueva) await guardarTarjeta(usuario.email, nueva)
+      // El servidor valida la tarjeta, simula el cobro, descuenta el stock y crea la boleta.
+      const creada = guardada
+        ? await comprar({ items, tarjetaGuardadaId: guardada.id, cvv: cvvGuardada })
+        : await comprar({ items, tarjeta: nueva, guardarTarjeta: guardarNueva })
       setBoleta(creada)
       vaciar()
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (problema) {
+      setErrores(problema.errores ?? {})
       setErrorPago(problema.message)
       sacudir()
     } finally {
@@ -143,6 +152,7 @@ export default function Pago() {
               <div ref={contenedor} className="tarjeta">
                 <h2 className="h5 font-display mb-3">Método de pago</h2>
 
+                {errorCarga && <Alert variant="warning" className="small">No pudimos cargar tus tarjetas guardadas: {errorCarga}</Alert>}
                 {tarjetas === null ? (
                   <p className="texto-suave" role="status">Cargando tus tarjetas…</p>
                 ) : (

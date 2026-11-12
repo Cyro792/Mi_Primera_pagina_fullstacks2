@@ -25,8 +25,8 @@ function Panel({ componente: Componente }) {
   const { cerrarSesion } = useAuth()
   const navigate = useNavigate()
   const salir = () => {
-    cerrarSesion()
     navigate('/')
+    cerrarSesion()
   }
   return (
     <Suspense fallback={<p className="p-5 texto-suave" role="status">Cargando panel…</p>}>

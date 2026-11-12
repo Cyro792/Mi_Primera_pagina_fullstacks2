@@ -28,7 +28,7 @@ function CarritoVacio() {
 /** Carrito de compras: revisar ítems y cambiar cantidades antes de ir a pagar (/pago). */
 export default function Carrito() {
   const { items, total, cantidad, cambiarCantidad, quitar, vaciar } = useCarrito()
-  const { usuario, tieneRol } = useAuth()
+  const { usuario, cargando, tieneRol } = useAuth()
 
   if (items.length === 0) return <CarritoVacio />
 
@@ -88,7 +88,8 @@ export default function Carrito() {
                 </motion.span>
               </div>
 
-              {!usuario && (
+              {cargando && <p className="texto-suave small mb-0" role="status">Recuperando tu sesión…</p>}
+              {!usuario && !cargando && (
                 <>
                   <Link to="/login" state={{ desde: '/carrito' }} className="btn btn-vet w-100">Inicia sesión para comprar</Link>
                   <p className="texto-suave small mt-2 mb-0">Tu carrito se guarda mientras inicias sesión.</p>

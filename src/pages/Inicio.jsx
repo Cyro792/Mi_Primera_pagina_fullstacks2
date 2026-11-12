@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Container from 'react-bootstrap/Container'
 import Row from 'react-bootstrap/Row'
@@ -11,7 +11,9 @@ import { Cascada, CascadaItem } from '../components/animaciones/Cascada.jsx'
 import Contador from '../components/animaciones/Contador.jsx'
 import Huella from '../components/animaciones/Huella.jsx'
 import Huellas from '../components/animaciones/Huellas.jsx'
-import { crearReserva } from '../services/db.js'
+import { solicitarCita } from '../services/citas.js'
+import { listarProductos } from '../services/productos.js'
+import { aISO } from '../utils/data.js'
 
 const SERVICIOS = [
   { icono: '🩺', titulo: 'Consulta General', desc: 'Exámenes de bienestar y diagnóstico personalizado.' },
@@ -29,8 +31,6 @@ const EQUIPO = [
 ]
 
 // Mismos nombres que usa el panel de recepción, para que la solicitud calce con sus servicios.
-const MOTIVOS = ['Consulta General', 'Vacunación', 'Laboratorio y Exámenes', 'Odontología', 'Cirugía', 'Urgencias 24h']
-
 const TITULO = 'El cuidado que tu mascota merece'
 // La clínica atiende desde 2009 (se calcula una vez, al cargar la página).
 const ANIOS_DE_SERVICIO = new Date().getFullYear() - 2009
@@ -132,32 +132,61 @@ function Cifras() {
   )
 }
 
-const FORMULARIO_VACIO = { nombre: '', telefono: '', mascota: '', servicio: '', fecha: '', hora: '', mensaje: '' }
+const FORMULARIO_VACIO = { nombre: '', telefono: '', mascota: '', servicioId: '', fecha: '', hora: '', mensaje: '' }
 
 function FormularioCita() {
   const [datos, setDatos] = useState(FORMULARIO_VACIO)
+  const [servicios, setServicios] = useState([])
   const [enviado, setEnviado] = useState(false)
+  const [enviando, setEnviando] = useState(false)
+  const [errores, setErrores] = useState({})
+  const [error, setError] = useState('')
 
-  const cambiar = (e) => setDatos({ ...datos, [e.target.name]: e.target.value })
+  // Los motivos de consulta son los servicios de la clínica que entrega la API.
+  useEffect(() => {
+    let vigente = true
+    listarProductos({ tipo: 'SERVICIO' })
+      .then((lista) => vigente && setServicios(lista))
+      .catch(() => vigente && setError('No pudimos cargar los servicios. Recarga la página o llámanos.'))
+    return () => {
+      vigente = false
+    }
+  }, [])
 
-  const enviar = (e) => {
+  const cambiar = (e) => {
+    setDatos({ ...datos, [e.target.name]: e.target.value })
+    setErrores((actuales) => ({ ...actuales, [e.target.name]: undefined }))
+  }
+
+  const enviar = async (e) => {
     e.preventDefault()
-    // La solicitud queda como reserva "Pendiente" y aparece en el panel de recepción.
-    crearReserva({
-      mascota: datos.mascota,
-      dueno: datos.nombre,
-      telefono: datos.telefono,
-      fecha: datos.fecha,
-      hora: datos.hora,
-      servicio: datos.servicio,
-      notas: datos.mensaje,
-      estado: 'Pendiente',
-    })
-    setEnviado(true)
+    setError('')
+    setEnviando(true)
+    try {
+      // La solicitud queda como cita "Pendiente" y aparece en el panel de recepción.
+      await solicitarCita({
+        nombreMascota: datos.mascota,
+        nombreDueno: datos.nombre,
+        telefonoContacto: datos.telefono,
+        servicioId: datos.servicioId,
+        fecha: datos.fecha,
+        hora: datos.hora,
+        notas: datos.mensaje,
+      })
+      setEnviado(true)
+    } catch (problema) {
+      // Los nombres de campo de la API se traducen a los del formulario.
+      const { nombreMascota, nombreDueno, telefonoContacto, ...otros } = problema.errores ?? {}
+      setErrores({ ...otros, mascota: nombreMascota, nombre: nombreDueno, telefono: telefonoContacto })
+      setError(problema.message)
+    } finally {
+      setEnviando(false)
+    }
   }
 
   const reiniciar = () => {
     setEnviado(false)
+    setErrores({})
     setDatos(FORMULARIO_VACIO)
   }
 
@@ -179,38 +208,44 @@ function FormularioCita() {
           <Row className="g-3 mb-3">
             <Col sm={6}>
               <Form.Label htmlFor="cita-nombre" className="etiqueta-campo">Tu Nombre</Form.Label>
-              <Form.Control id="cita-nombre" className="campo" type="text" name="nombre" required value={datos.nombre} onChange={cambiar} placeholder="Ej. Ana García" />
+              <Form.Control id="cita-nombre" className="campo" type="text" name="nombre" required value={datos.nombre} onChange={cambiar} placeholder="Ej. Ana García" isInvalid={Boolean(errores.nombre)} />
+              <Form.Control.Feedback type="invalid">{errores.nombre}</Form.Control.Feedback>
             </Col>
             <Col sm={6}>
               <Form.Label htmlFor="cita-telefono" className="etiqueta-campo">Teléfono</Form.Label>
-              <Form.Control id="cita-telefono" className="campo" type="tel" name="telefono" required value={datos.telefono} onChange={cambiar} placeholder="+56 9 1234 5678" />
+              <Form.Control id="cita-telefono" className="campo" type="tel" name="telefono" required value={datos.telefono} onChange={cambiar} placeholder="+56 9 1234 5678" isInvalid={Boolean(errores.telefono)} />
+              <Form.Control.Feedback type="invalid">{errores.telefono}</Form.Control.Feedback>
             </Col>
           </Row>
 
           <Row className="g-3 mb-3">
             <Col sm={6}>
               <Form.Label htmlFor="cita-mascota" className="etiqueta-campo">Nombre de la Mascota</Form.Label>
-              <Form.Control id="cita-mascota" className="campo" type="text" name="mascota" required value={datos.mascota} onChange={cambiar} placeholder="Ej. Pepe" />
+              <Form.Control id="cita-mascota" className="campo" type="text" name="mascota" required value={datos.mascota} onChange={cambiar} placeholder="Ej. Pepe" isInvalid={Boolean(errores.mascota)} />
+              <Form.Control.Feedback type="invalid">{errores.mascota}</Form.Control.Feedback>
             </Col>
             <Col sm={6}>
               <Form.Label htmlFor="cita-servicio" className="etiqueta-campo">Tipo de Consulta</Form.Label>
-              <Form.Select id="cita-servicio" className="campo" name="servicio" required value={datos.servicio} onChange={cambiar}>
+              <Form.Select id="cita-servicio" className="campo" name="servicioId" required value={datos.servicioId} onChange={cambiar} isInvalid={Boolean(errores.servicioId)}>
                 <option value="">Seleccionar motivo...</option>
-                {MOTIVOS.map((motivo) => (
-                  <option key={motivo} value={motivo}>{motivo}</option>
+                {servicios.map((s) => (
+                  <option key={s.id} value={s.id}>{s.nombre}</option>
                 ))}
               </Form.Select>
+              <Form.Control.Feedback type="invalid">{errores.servicioId}</Form.Control.Feedback>
             </Col>
           </Row>
 
           <Row className="g-3 mb-3">
             <Col sm={6}>
               <Form.Label htmlFor="cita-fecha" className="etiqueta-campo">Fecha Preferida</Form.Label>
-              <Form.Control id="cita-fecha" className="campo" type="date" name="fecha" required value={datos.fecha} onChange={cambiar} />
+              <Form.Control id="cita-fecha" className="campo" type="date" name="fecha" required min={aISO()} value={datos.fecha} onChange={cambiar} isInvalid={Boolean(errores.fecha)} />
+              <Form.Control.Feedback type="invalid">{errores.fecha}</Form.Control.Feedback>
             </Col>
             <Col sm={6}>
               <Form.Label htmlFor="cita-hora" className="etiqueta-campo">Hora Preferida</Form.Label>
-              <Form.Control id="cita-hora" className="campo" type="time" name="hora" required value={datos.hora} onChange={cambiar} />
+              <Form.Control id="cita-hora" className="campo" type="time" name="hora" required value={datos.hora} onChange={cambiar} isInvalid={Boolean(errores.hora)} />
+              <Form.Control.Feedback type="invalid">{errores.hora}</Form.Control.Feedback>
             </Col>
           </Row>
 
@@ -219,7 +254,17 @@ function FormularioCita() {
             <Form.Control id="cita-mensaje" className="campo" as="textarea" rows={3} name="mensaje" value={datos.mensaje} onChange={cambiar} placeholder="Describe brevemente los síntomas o motivo de la visita..." style={{ resize: 'none' }} />
           </div>
 
-          <button type="submit" className="btn btn-vet w-100 py-3">Solicitar Cita Médica</button>
+          <AnimatePresence>
+            {error && (
+              <motion.div key="error" className="alert alert-danger" role="alert" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                {error}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <button type="submit" className="btn btn-vet w-100 py-3" disabled={enviando}>
+            {enviando ? 'Enviando solicitud…' : 'Solicitar Cita Médica'}
+          </button>
         </motion.form>
       )}
     </AnimatePresence>

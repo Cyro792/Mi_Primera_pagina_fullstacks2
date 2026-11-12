@@ -1,22 +1,35 @@
 import { useState } from 'react'
-import { ROLES } from '../../utils/data.js'
+import { ETIQUETA_ROL, ROLES_USUARIO } from '../../utils/data.js'
 import { validarUsuario } from '../../utils/validators.js'
 
-const VACIO = { nombre: '', email: '', rol: '' }
+const VACIO = { nombre: '', email: '', password: '', telefono: '', rol: '' }
 
-export default function UsuariosPanel({ usuarios, onAgregar, onToggleActivo }) {
+/**
+ * Cuentas del sistema. El administrador crea cuentas de cualquier rol (con una contraseña inicial)
+ * y las activa o desactiva. No puede desactivar su propia cuenta.
+ */
+export default function UsuariosPanel({ usuarios, idActual, onAgregar, onToggleActivo }) {
   const [valores, setValores] = useState(VACIO)
   const [errores, setErrores] = useState({})
+  const [enviando, setEnviando] = useState(false)
 
   const cambiar = (e) => setValores({ ...valores, [e.target.name]: e.target.value })
 
-  const enviar = (e) => {
+  const enviar = async (e) => {
     e.preventDefault()
     const nuevos = validarUsuario(valores, usuarios)
     setErrores(nuevos)
     if (Object.keys(nuevos).length > 0) return
-    onAgregar({ nombre: valores.nombre.trim(), email: valores.email.trim().toLowerCase(), rol: valores.rol })
-    setValores(VACIO)
+    setEnviando(true)
+    try {
+      await onAgregar(valores)
+      setValores(VACIO)
+    } catch (problema) {
+      // Errores por campo que devuelve la API (por ejemplo, correo ya registrado).
+      setErrores({ general: problema.message, ...problema.errores })
+    } finally {
+      setEnviando(false)
+    }
   }
 
   const clase = (campo) => `form-control${errores[campo] ? ' is-invalid' : ''}`
@@ -38,16 +51,27 @@ export default function UsuariosPanel({ usuarios, onAgregar, onToggleActivo }) {
               {errores.email && <div className="invalid-feedback">{errores.email}</div>}
             </div>
             <div className="mb-3">
+              <label htmlFor="u-password" className="form-label">Contraseña inicial</label>
+              <input id="u-password" name="password" type="password" autoComplete="new-password" className={clase('password')} value={valores.password} onChange={cambiar} />
+              {errores.password && <div className="invalid-feedback">{errores.password}</div>}
+            </div>
+            <div className="mb-3">
+              <label htmlFor="u-telefono" className="form-label">Teléfono <span className="text-muted small">(opcional)</span></label>
+              <input id="u-telefono" name="telefono" type="tel" placeholder="+56 9 1234 5678" className={clase('telefono')} value={valores.telefono} onChange={cambiar} />
+              {errores.telefono && <div className="invalid-feedback">{errores.telefono}</div>}
+            </div>
+            <div className="mb-3">
               <label htmlFor="u-rol" className="form-label">Rol</label>
               <select id="u-rol" name="rol" className={`form-select${errores.rol ? ' is-invalid' : ''}`} value={valores.rol} onChange={cambiar}>
                 <option value="">Seleccionar…</option>
-                {ROLES.map((r) => (
-                  <option key={r} value={r}>{r}</option>
+                {ROLES_USUARIO.map((r) => (
+                  <option key={r} value={r}>{ETIQUETA_ROL[r]}</option>
                 ))}
               </select>
               {errores.rol && <div className="invalid-feedback">{errores.rol}</div>}
             </div>
-            <button type="submit" className="btn btn-success w-100">Agregar usuario</button>
+            {errores.general && <div className="alert alert-danger small py-2" role="alert">{errores.general}</div>}
+            <button type="submit" className="btn btn-success w-100" disabled={enviando}>{enviando ? 'Guardando…' : 'Agregar usuario'}</button>
           </div>
         </form>
       </div>
@@ -66,12 +90,16 @@ export default function UsuariosPanel({ usuarios, onAgregar, onToggleActivo }) {
                     <tr key={u.id}>
                       <td>{u.nombre}</td>
                       <td>{u.email}</td>
-                      <td><span className="badge text-bg-light border">{u.rol}</span></td>
+                      <td><span className="badge text-bg-light border">{ETIQUETA_ROL[u.rol] ?? u.rol}</span></td>
                       <td>{u.activo ? <span className="badge text-bg-success">Activo</span> : <span className="badge text-bg-secondary">Inactivo</span>}</td>
                       <td className="text-end">
-                        <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => onToggleActivo(u.id)}>
-                          {u.activo ? 'Desactivar' : 'Activar'}
-                        </button>
+                        {u.id === idActual ? (
+                          <span className="small text-muted">Tu cuenta</span>
+                        ) : (
+                          <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => onToggleActivo(u)}>
+                            {u.activo ? 'Desactivar' : 'Activar'}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}

@@ -7,12 +7,20 @@ import { motion } from 'motion/react'
 import Avatar from '../Avatar.jsx'
 import AvisoGuardado from './AvisoGuardado.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
-import { AVATARES, COLORES, leerPerfil, REGIONES, validarPerfil } from '../../services/perfil.js'
+import { AVATARES, COLORES, REGIONES, validarPerfil } from '../../services/perfil.js'
 
 /** Personalización de la cuenta: avatar, color, nombre y datos de contacto. */
 export default function PerfilFormulario() {
   const { usuario, guardarPerfil } = useAuth()
-  const [valores, setValores] = useState(() => ({ nombre: usuario.nombre, ...leerPerfil(usuario.email) }))
+  const [valores, setValores] = useState(() => ({
+    nombre: usuario.nombre,
+    telefono: usuario.telefono,
+    region: usuario.region,
+    comuna: usuario.comuna,
+    direccion: usuario.direccion,
+    avatar: usuario.avatar,
+  }))
+  const [guardando, setGuardando] = useState(false)
   const [errores, setErrores] = useState({})
   const [error, setError] = useState('')
   const [aviso, setAviso] = useState('')
@@ -24,18 +32,22 @@ export default function PerfilFormulario() {
   }
   const cambiarAvatar = (cambios) => setValores((actuales) => ({ ...actuales, avatar: { ...actuales.avatar, ...cambios } }))
 
-  const guardar = (evento) => {
+  const guardar = async (evento) => {
     evento.preventDefault()
     const encontrados = validarPerfil(valores)
     setErrores(encontrados)
     setError('')
     if (Object.keys(encontrados).length > 0) return
-    const resultado = guardarPerfil(valores)
-    if (!resultado.ok) {
-      setError(resultado.error)
-      return
+    setGuardando(true)
+    try {
+      await guardarPerfil(valores)
+      setAviso('Cambios guardados')
+    } catch (problema) {
+      setErrores(problema.errores ?? {})
+      setError(problema.message)
+    } finally {
+      setGuardando(false)
     }
-    setAviso('Cambios guardados')
   }
 
   return (
@@ -121,7 +133,7 @@ export default function PerfilFormulario() {
       {error && <Alert variant="danger" className="mt-3 mb-0">{error}</Alert>}
 
       <div className="d-flex flex-wrap align-items-center gap-3 mt-4">
-        <button type="submit" className="btn btn-vet">Guardar cambios</button>
+        <button type="submit" className="btn btn-vet" disabled={guardando}>{guardando ? 'Guardando…' : 'Guardar cambios'}</button>
         <AvisoGuardado mensaje={aviso} onCerrar={cerrarAviso} />
       </div>
     </form>

@@ -1,40 +1,30 @@
 import { describe, expect, it, vi } from 'vitest'
-import { citasDelDia, citasPorServicio, contarPorEstado, filtrarCitas, formatoCLP, ingresosEstimados, proximasCitas, siguienteId } from './stats.js'
+import { citasDelDia, contarPorEstado, filtrarCitas, formatoCLP, proximasCitas } from './stats.js'
 import { aISO } from './data.js'
 
 const HOY = '2026-10-12'
+// Mismo formato que entrega GET /api/v1/citas.
 const citas = [
-  { id: 1, cliente: 'Ana García', mascota: 'Pepe', servicio: 'Consulta General', fecha: HOY, hora: '10:00', estado: 'Confirmada' },
-  { id: 2, cliente: 'Pedro Soto', mascota: 'Luna', servicio: 'Vacunación', fecha: HOY, hora: '09:00', estado: 'Pendiente' },
-  { id: 3, cliente: 'María Fuentes', mascota: 'Rocky', servicio: 'Cirugía', fecha: '2026-10-13', hora: '08:00', estado: 'Completada' },
-  { id: 4, cliente: 'Luis Araya', mascota: 'Kira', servicio: 'Vacunación', fecha: HOY, hora: '12:00', estado: 'Cancelada' },
+  { id: 1, nombreDueno: 'Ana García', nombreMascota: 'Pepe', servicioNombre: 'Consulta General', fecha: HOY, hora: '10:00', estado: 'CONFIRMADA' },
+  { id: 2, nombreDueno: 'Pedro Soto', nombreMascota: 'Luna', servicioNombre: 'Vacunación', fecha: HOY, hora: '09:00', estado: 'PENDIENTE' },
+  { id: 3, nombreDueno: 'María Fuentes', nombreMascota: 'Rocky', servicioNombre: 'Cirugía', fecha: '2026-10-13', hora: '08:00', estado: 'COMPLETADA' },
+  { id: 4, nombreDueno: 'Luis Araya', nombreMascota: 'Kira', servicioNombre: 'Vacunación', fecha: HOY, hora: '12:00', estado: 'CANCELADA' },
 ]
 
-describe('stats.js (métricas del dashboard)', () => {
+describe('stats.js (métricas de los paneles)', () => {
   it('contarPorEstado cuenta cada estado, incluso los que no tienen citas', () => {
-    expect(contarPorEstado(citas)).toEqual({ Pendiente: 1, Confirmada: 1, Completada: 1, Cancelada: 1 })
-    expect(contarPorEstado([])).toEqual({ Pendiente: 0, Confirmada: 0, Completada: 0, Cancelada: 0 })
+    expect(contarPorEstado(citas)).toEqual({ PENDIENTE: 1, CONFIRMADA: 1, COMPLETADA: 1, CANCELADA: 1 })
+    expect(contarPorEstado([])).toEqual({ PENDIENTE: 0, CONFIRMADA: 0, COMPLETADA: 0, CANCELADA: 0 })
   })
 
   it('citasDelDia devuelve solo las de hoy y excluye las canceladas', () => {
     expect(citasDelDia(citas, HOY).map((c) => c.id)).toEqual([1, 2])
   })
 
-  it('citasPorServicio agrupa por servicio sin contar canceladas', () => {
-    const datos = citasPorServicio(citas)
-    expect(datos.find((d) => d.etiqueta === 'Vacunación').valor).toBe(1)
-    expect(datos.find((d) => d.etiqueta === 'Odontología').valor).toBe(0)
-    expect(datos).toHaveLength(6)
-  })
-
-  it('ingresosEstimados suma solo las citas completadas', () => {
-    expect(ingresosEstimados(citas)).toBe(120000)
-  })
-
-  it('filtrarCitas filtra por estado y por texto (cliente o mascota)', () => {
-    expect(filtrarCitas(citas, { estado: 'Pendiente' }).map((c) => c.id)).toEqual([2])
+  it('filtrarCitas filtra por estado y por texto (dueño o mascota)', () => {
+    expect(filtrarCitas(citas, { estado: 'PENDIENTE' }).map((c) => c.id)).toEqual([2])
     expect(filtrarCitas(citas, { texto: ' rocky ' }).map((c) => c.id)).toEqual([3])
-    expect(filtrarCitas(citas, { estado: 'Todas', texto: 'garcía' }).map((c) => c.id)).toEqual([1])
+    expect(filtrarCitas(citas, { estado: 'TODAS', texto: 'garcía' }).map((c) => c.id)).toEqual([1])
     expect(filtrarCitas(citas)).toHaveLength(4)
   })
 
@@ -45,11 +35,6 @@ describe('stats.js (métricas del dashboard)', () => {
 
   it('formatoCLP da formato de pesos chilenos', () => {
     expect(formatoCLP(120000)).toContain('120.000')
-  })
-
-  it('siguienteId entrega el máximo + 1 (y 1 si la lista está vacía)', () => {
-    expect(siguienteId(citas)).toBe(5)
-    expect(siguienteId([])).toBe(1)
   })
 
   it('aISO usa un reloj simulado (vi.useFakeTimers) y formatea YYYY-MM-DD', () => {

@@ -1,4 +1,4 @@
-import { ROLES } from './data.js'
+import { ROLES_USUARIO } from './data.js'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 
@@ -7,13 +7,15 @@ export function esEmailValido(valor) {
 }
 
 // Devuelve un objeto { campo: 'mensaje' }. Si está vacío, el formulario es válido.
-export function validarUsuario({ nombre = '', email = '', rol = '' }, existentes = []) {
+// El backend vuelve a validar todo; esto solo evita enviar datos que de seguro serán rechazados.
+export function validarUsuario({ nombre = '', email = '', password = '', rol = '' }, existentes = []) {
   const errores = {}
   if (nombre.trim().length < 3) errores.nombre = 'El nombre debe tener al menos 3 caracteres.'
   if (!email.trim()) errores.email = 'El correo es obligatorio.'
   else if (!esEmailValido(email)) errores.email = 'Ingresa un correo válido.'
   else if (existentes.some((u) => u.email.toLowerCase() === email.trim().toLowerCase()))
     errores.email = 'Ya existe un usuario con ese correo.'
-  if (!ROLES.includes(rol)) errores.rol = 'Selecciona un rol.'
+  if (password.length < 8) errores.password = 'La contraseña inicial debe tener al menos 8 caracteres.'
+  if (!ROLES_USUARIO.includes(rol)) errores.rol = 'Selecciona un rol.'
   return errores
 }

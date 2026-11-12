@@ -1,7 +1,6 @@
-// Datos de personalización de la cuenta del cliente: avatar, teléfono y dirección.
-// Con el backend serán GET y PUT /api/v1/usuarios/me. Por ahora se guardan en el navegador.
-
-const CLAVE_PERFILES = 'sanmarcos_perfiles'
+// Datos de personalización de la cuenta: avatar, nombre, teléfono y dirección.
+//   GET /api/v1/perfil   PUT /api/v1/perfil
+import { api } from './api.js'
 
 export const AVATARES = [
   { icono: '🐶', nombre: 'perro' },
@@ -44,31 +43,23 @@ export const REGIONES = [
 
 export const AVATAR_INICIAL = { icono: '🐾', color: '#2A6049' }
 
-const PERFIL_VACIO = { telefono: '', region: '', comuna: '', direccion: '', avatar: AVATAR_INICIAL }
-
-function leerTodos(storage) {
-  try {
-    const todos = JSON.parse(storage.getItem(CLAVE_PERFILES))
-    return todos && typeof todos === 'object' && !Array.isArray(todos) ? todos : {}
-  } catch {
-    return {}
-  }
-}
-
-/** Perfil del usuario; los campos que nunca guardó vienen vacíos. */
-export function leerPerfil(email, storage = window.localStorage) {
-  const guardado = leerTodos(storage)[email] ?? {}
-  return { ...PERFIL_VACIO, ...guardado, avatar: { ...AVATAR_INICIAL, ...guardado.avatar } }
-}
-
-export function guardarPerfil(email, { telefono = '', region = '', comuna = '', direccion = '', avatar = AVATAR_INICIAL }, storage = window.localStorage) {
-  const perfil = { telefono: telefono.trim(), region, comuna: comuna.trim(), direccion: direccion.trim(), avatar }
-  try {
-    storage.setItem(CLAVE_PERFILES, JSON.stringify({ ...leerTodos(storage), [email]: perfil }))
-    return { ok: true, perfil }
-  } catch {
-    return { ok: false, error: 'No se pudieron guardar los cambios en este navegador.' }
-  }
+/**
+ * Guarda los datos del perfil en el servidor y devuelve el usuario actualizado tal como lo envía la API.
+ * El correo y el rol no se pueden cambiar desde aquí.
+ */
+export async function actualizarPerfil({ nombre = '', telefono = '', region = '', comuna = '', direccion = '', avatar = AVATAR_INICIAL }) {
+  return api('/perfil', {
+    metodo: 'PUT',
+    cuerpo: {
+      nombre: nombre.trim(),
+      telefono: telefono.trim(),
+      region,
+      comuna: comuna.trim(),
+      direccion: direccion.trim(),
+      avatarIcono: avatar.icono,
+      avatarColor: avatar.color,
+    },
+  })
 }
 
 /** Valida los datos editables del perfil. El teléfono es opcional, pero si se escribe debe ser válido. */

@@ -1,66 +1,100 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { actualizarNombre, autenticar, borrarSesion, guardarSesion, leerSesion, registrarCuenta } from '../services/auth.js'
-import { guardarPerfil as guardarPerfilEn, leerPerfil } from '../services/perfil.js'
+import { alExpirarSesion, guardarToken } from '../services/api.js'
+import {
+  CLAVE_SESION,
+  haySesionGuardada,
+  login,
+  logout,
+  recuperarSesion,
+  registrar as registrarEnApi,
+  usuarioDesdeApi,
+} from '../services/auth.js'
+import { actualizarPerfil } from '../services/perfil.js'
 
 const AuthContext = createContext(null)
 
 /**
  * Guarda quién tiene la sesión iniciada y lo comparte con toda la aplicación.
- * La sesión se lee del almacenamiento al cargar, por eso sobrevive a una recarga de página.
+ * Al cargar la página pide al backend renovar la sesión (cookie HttpOnly): así la sesión sobrevive
+ * a una recarga sin guardar el token en el navegador. Mientras eso ocurre, `cargando` es true.
  */
 export function AuthProvider({ children }) {
-  const [usuario, setUsuario] = useState(() => leerSesion())
+  const [usuario, setUsuario] = useState(null)
+  const [cargando, setCargando] = useState(() => haySesionGuardada())
 
-  // Si la sesión se cierra o se inicia en otra pestaña, esta pestaña se actualiza sola.
   useEffect(() => {
-    const alCambiar = () => setUsuario(leerSesion())
-    window.addEventListener('storage', alCambiar)
-    return () => window.removeEventListener('storage', alCambiar)
-  }, [])
+    // Si la API avisa que la sesión ya no se puede renovar, se cierra también en pantalla.
+    alExpirarSesion(() => setUsuario(null))
 
-  const iniciarSesion = useCallback((credenciales) => {
-    const resultado = autenticar(credenciales)
-    if (!resultado.ok) return resultado
-    // El avatar elegido en "Mi cuenta" viaja con la sesión para mostrarlo en la barra.
-    const conAvatar = { ...resultado.usuario, avatar: leerPerfil(resultado.usuario.email).avatar }
-    guardarSesion(conAvatar)
-    setUsuario(conAvatar)
-    return { ...resultado, usuario: conAvatar }
-  }, [])
+    let vigente = true
+    if (haySesionGuardada()) {
+      recuperarSesion()
+        .then((recuperado) => vigente && setUsuario(recuperado))
+        .catch(() => vigente && setUsuario(null))
+        .finally(() => vigente && setCargando(false))
+    }
 
-  const cerrarSesion = useCallback(() => {
-    borrarSesion()
-    setUsuario(null)
-  }, [])
-
-  /** Guarda nombre, avatar y datos de contacto, y refleja el cambio en la sesión al instante. */
-  const guardarPerfil = useCallback(
-    ({ nombre, ...perfil }) => {
-      if (!usuario) return { ok: false, error: 'No hay una sesión iniciada.' }
-      const resultadoNombre = actualizarNombre(usuario.email, nombre)
-      const resultadoPerfil = guardarPerfilEn(usuario.email, perfil)
-      if (!resultadoNombre.ok || !resultadoPerfil.ok) {
-        return { ok: false, error: resultadoNombre.error ?? resultadoPerfil.error }
+    // Si se cierra la sesión en otra pestaña, esta pestaña también la cierra.
+    const alCambiar = (evento) => {
+      if (evento.key === CLAVE_SESION && evento.newValue === null) {
+        guardarToken(null)
+        setUsuario(null)
       }
-      const actualizado = { ...usuario, nombre: nombre.trim(), avatar: resultadoPerfil.perfil.avatar }
-      guardarSesion(actualizado)
-      setUsuario(actualizado)
-      return { ok: true }
-    },
-    [usuario],
-  )
+    }
+    window.addEventListener('storage', alCambiar)
+    return () => {
+      vigente = false
+      window.removeEventListener('storage', alCambiar)
+    }
+  }, [])
+
+  /** Inicia sesión. Devuelve el usuario o lanza un ApiError (por ejemplo, credenciales incorrectas). */
+  const iniciarSesion = useCallback(async (credenciales) => {
+    const conectado = await login(credenciales)
+    setUsuario(conectado)
+    return conectado
+  }, [])
+
+  /** Crea una cuenta de cliente y deja la sesión iniciada. */
+  const registrar = useCallback(async (datos) => {
+    const nuevo = await registrarEnApi(datos)
+    setUsuario(nuevo)
+    return nuevo
+  }, [])
+
+  /**
+   * Cierra la sesión en el servidor y después en pantalla. Quien la llama navega primero a otra
+   * página: así una ruta protegida no alcanza a redirigir al login al quedar sin usuario.
+   */
+  const cerrarSesion = useCallback(async () => {
+    try {
+      await logout()
+    } catch {
+      // Aunque el servidor no responda, en este navegador la sesión queda cerrada.
+    } finally {
+      setUsuario(null)
+    }
+  }, [])
+
+  /** Guarda nombre, avatar y datos de contacto en el servidor, y refleja el cambio al instante. */
+  const guardarPerfil = useCallback(async (datos) => {
+    const actualizado = usuarioDesdeApi(await actualizarPerfil(datos))
+    setUsuario(actualizado)
+    return actualizado
+  }, [])
 
   const valor = useMemo(
     () => ({
       usuario,
+      cargando,
       estaAutenticado: usuario !== null,
       tieneRol: (...roles) => usuario !== null && roles.includes(usuario.rol),
       iniciarSesion,
+      registrar,
       cerrarSesion,
       guardarPerfil,
-      registrar: registrarCuenta,
     }),
-    [usuario, iniciarSesion, cerrarSesion, guardarPerfil],
+    [usuario, cargando, iniciarSesion, registrar, cerrarSesion, guardarPerfil],
   )
 
   return <AuthContext.Provider value={valor}>{children}</AuthContext.Provider>

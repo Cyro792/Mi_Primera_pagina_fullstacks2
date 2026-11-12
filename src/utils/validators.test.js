@@ -12,16 +12,16 @@ describe('validators.js', () => {
   })
 
   it('validarUsuario no devuelve errores con datos válidos', () => {
-    expect(validarUsuario({ nombre: 'Ana Pérez', email: 'ana@correo.cl', rol: 'Dueño' }, existentes)).toEqual({})
+    expect(validarUsuario({ nombre: 'Ana Pérez', email: 'ana@correo.cl', password: 'Clave1234', rol: 'CLIENTE' }, existentes)).toEqual({})
   })
 
-  it('validarUsuario exige nombre de al menos 3 caracteres, correo y rol', () => {
-    const errores = validarUsuario({ nombre: 'A', email: '', rol: '' }, existentes)
-    expect(Object.keys(errores).sort()).toEqual(['email', 'nombre', 'rol'])
+  it('validarUsuario exige nombre de al menos 3 caracteres, correo, contraseña inicial y un rol válido', () => {
+    const errores = validarUsuario({ nombre: 'A', email: '', password: '123', rol: 'Dueño' }, existentes)
+    expect(Object.keys(errores).sort()).toEqual(['email', 'nombre', 'password', 'rol'])
   })
 
   it('validarUsuario detecta correos duplicados sin importar mayúsculas', () => {
-    const errores = validarUsuario({ nombre: 'Otro Admin', email: 'ADMIN@sanmarcos.cl', rol: 'Administrador' }, existentes)
+    const errores = validarUsuario({ nombre: 'Otro Admin', email: 'ADMIN@sanmarcos.cl', password: 'Clave1234', rol: 'ADMIN' }, existentes)
     expect(errores.email).toContain('Ya existe')
   })
 })

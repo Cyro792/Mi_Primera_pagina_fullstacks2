@@ -1,234 +1,264 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react'
+import { AnimatePresence, motion } from 'motion/react'
+import { useAuth } from '../context/AuthContext.jsx'
 import {
-    getReservas,
-    crearReserva,
-    actualizarReserva,
-    eliminarReserva,
-    getMetricasHoy,
-    getServicios
-} from '../services/db.js';
-import { aISO } from '../utils/data.js';
-import './recepcion.css';
+  actualizarCita,
+  cambiarEstadoCita,
+  eliminarCita,
+  esEstadoFinal,
+  ETIQUETA_ESTADO,
+  listarCitas,
+  solicitarCita,
+} from '../services/citas.js'
+import { listarProductos } from '../services/productos.js'
+import { aISO } from '../utils/data.js'
+import { citasDelDia, contarPorEstado } from '../utils/stats.js'
+import './recepcion.css'
 
-// Formulario en blanco para una reserva nueva. La fecha por defecto es hoy (hora local).
-const formularioVacio = () => ({
-    mascota: '',
-    dueno: '',
-    rutDueno: '',
-    telefono: '',
-    fecha: aISO(),
-    hora: '10:00',
-    servicio: 'Consulta General',
-    estado: 'Pendiente',
-    notas: ''
-});
+// Formulario en blanco para una cita nueva. La fecha por defecto es hoy (hora local).
+const formularioVacio = (servicios = []) => ({
+  mascotaId: null,
+  nombreMascota: '',
+  nombreDueno: '',
+  telefonoContacto: '',
+  fecha: aISO(),
+  hora: '10:00',
+  servicioId: servicios[0]?.id ?? '',
+  notas: '',
+})
 
+const ACCIONES = [
+  { desde: 'PENDIENTE', hacia: 'CONFIRMADA', texto: 'Confirmar', clase: 'recepcion-boton--verde' },
+  { desde: 'CONFIRMADA', hacia: 'COMPLETADA', texto: 'Marcar atendida', clase: 'recepcion-boton--azul' },
+]
+
+/** Panel de recepción: la agenda completa con alta, edición, cambio de estado y eliminación (API). */
 export default function RecepcionistaDashboard({ onLogout }) {
-    // Los datos se leen de db.js al montar el panel.
-    const [reservas, setReservas] = useState(() => getReservas());
-    const [metricas, setMetricas] = useState(() => getMetricasHoy());
-    const [servicios, setServicios] = useState(() => getServicios());
-    const [mostrarModal, setMostrarModal] = useState(false);
-    const [reservaEditando, setReservaEditando] = useState(null);
+  const { usuario } = useAuth()
+  const [citas, setCitas] = useState(null)
+  const [servicios, setServicios] = useState([])
+  const [error, setError] = useState('')
+  const [version, setVersion] = useState(0)
+  const [mostrarModal, setMostrarModal] = useState(false)
+  const [citaEditando, setCitaEditando] = useState(null)
+  const [form, setForm] = useState(formularioVacio)
+  const [erroresForm, setErroresForm] = useState({})
+  const [errorForm, setErrorForm] = useState('')
+  const [guardando, setGuardando] = useState(false)
 
-    // Estado del formulario
-    const [form, setForm] = useState(formularioVacio);
+  useEffect(() => {
+    let vigente = true
+    Promise.all([listarCitas(), listarProductos({ tipo: 'SERVICIO' })])
+      .then(([agenda, lista]) => {
+        if (!vigente) return
+        setCitas(agenda)
+        setServicios(lista)
+      })
+      .catch((problema) => vigente && setError(problema.message))
+    return () => {
+      vigente = false
+    }
+  }, [version])
 
-    const cargarDatos = () => {
-        setReservas(getReservas());
-        setMetricas(getMetricasHoy());
-        setServicios(getServicios());
-    };
+  const recargar = () => setVersion((v) => v + 1)
 
-    const handleChange = (e) => {
-        setForm({ ...form, [e.target.name]: e.target.value });
-    };
+  const intentar = async (accion) => {
+    setError('')
+    try {
+      await accion()
+    } catch (problema) {
+      setError(problema.message)
+    } finally {
+      recargar()
+    }
+  }
 
-    const abrirModalNuevo = () => {
-        setReservaEditando(null);
-        setForm(formularioVacio());
-        setMostrarModal(true);
-    };
+  const hoy = aISO()
+  const porEstado = contarPorEstado(citas ?? [])
+  const metricas = {
+    hoy: citasDelDia(citas ?? [], hoy).length,
+    pendientes: porEstado.PENDIENTE,
+    activas: porEstado.PENDIENTE + porEstado.CONFIRMADA,
+  }
 
-    const abrirModalEditar = (reserva) => {
-        setReservaEditando(reserva);
-        setForm(reserva);
-        setMostrarModal(true);
-    };
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value })
+    setErroresForm((actuales) => ({ ...actuales, [e.target.name]: undefined }))
+  }
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        if (reservaEditando) {
-            actualizarReserva(reservaEditando.id, form);
-        } else {
-            crearReserva(form);
-        }
-        setMostrarModal(false);
-        cargarDatos();
-    };
+  const abrirModal = (cita = null) => {
+    setCitaEditando(cita)
+    setForm(cita ? { ...cita, telefonoContacto: cita.telefonoContacto ?? '', notas: cita.notas ?? '' } : formularioVacio(servicios))
+    setErroresForm({})
+    setErrorForm('')
+    setMostrarModal(true)
+  }
 
-    const handleCambiarEstado = (id, nuevoEstado) => {
-        actualizarReserva(id, { estado: nuevoEstado });
-        cargarDatos();
-    };
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setGuardando(true)
+    setErrorForm('')
+    try {
+      if (citaEditando) await actualizarCita(citaEditando.id, form)
+      else await solicitarCita(form)
+      setMostrarModal(false)
+      recargar()
+    } catch (problema) {
+      setErroresForm(problema.errores ?? {})
+      setErrorForm(problema.message)
+    } finally {
+      setGuardando(false)
+    }
+  }
 
-    const handleEliminar = (id) => {
-        if (window.confirm('¿Desea cancelar y eliminar esta reserva?')) {
-            eliminarReserva(id);
-            cargarDatos();
-        }
-    };
+  const handleEliminar = (cita) => {
+    if (window.confirm(`¿Desea eliminar la cita de ${cita.nombreMascota}?`)) intentar(() => eliminarCita(cita.id))
+  }
 
-    return (
-        <div className="recepcion" style={{ display: 'flex', minHeight: '100vh', fontFamily: 'system-ui, sans-serif', backgroundColor: '#f4f6f8' }}>
-            {/* Sidebar / Barra Lateral */}
-            <aside className="recepcion-lateral" style={{ width: '260px', backgroundColor: '#1e382b', color: '#fff', padding: '2rem 1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                <div>
-                    <div style={{ marginBottom: '2.5rem' }}>
-                        <h1 style={{ fontSize: '1.6rem', color: '#e2f0d9', margin: 0, fontWeight: '600' }}>Veterinaria</h1>
-                        <h1 style={{ fontSize: '1.6rem', color: '#c5a059', fontStyle: 'italic', margin: 0, fontWeight: '400' }}>San Marcos</h1>
-                        <p style={{ fontSize: '0.75rem', color: '#a0b4a8', marginTop: '0.8rem', letterSpacing: '1px' }}>PANEL DE RECEPCIÓN</p>
-                    </div>
-                    <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-                        <div style={{ padding: '0.8rem 1rem', borderRadius: '8px', backgroundColor: '#2d4d3c', color: '#fff', fontWeight: '500' }}>
-                            ❖ Citas y Reservas
-                        </div>
-                    </nav>
-                </div>
-                <button
-                    onClick={onLogout}
-                    style={{ width: '100%', padding: '0.8rem', backgroundColor: 'transparent', border: '1px solid #4a6b58', color: '#e2f0d9', borderRadius: '20px', cursor: 'pointer', textAlign: 'center' }}
-                >
-                    Cerrar sesión
-                </button>
-            </aside>
+  const handleCancelar = (cita) => {
+    if (window.confirm(`¿Cancelar la cita de ${cita.nombreMascota}?`)) intentar(() => cambiarEstadoCita(cita.id, 'CANCELADA'))
+  }
 
-            {/* Área Principal de Contenido */}
-            <main className="recepcion-principal" style={{ flex: 1, padding: '2rem 3rem' }}>
-                <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                    <h2 style={{ fontSize: '1.5rem', color: '#2c3e50', margin: 0 }}>Gestión de Reservas</h2>
-                    <span style={{ fontSize: '0.9rem', color: '#7f8c8d' }}>
-            Sesión: <strong>Recepcionista</strong>
-          </span>
-                </header>
+  const campo = (nombre, etiqueta, props = {}) => (
+    <div className="recepcion-campo">
+      <label htmlFor={`r-${nombre}`}>{etiqueta}</label>
+      <input id={`r-${nombre}`} name={nombre} value={form[nombre] ?? ''} onChange={handleChange} aria-invalid={erroresForm[nombre] ? 'true' : undefined} {...props} />
+      {erroresForm[nombre] && <span className="recepcion-error">{erroresForm[nombre]}</span>}
+    </div>
+  )
 
-                {/* Métrica / Resumen de Citas */}
-                <section className="recepcion-metricas" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem', marginBottom: '2rem' }}>
-                    <div style={{ backgroundColor: '#fff', padding: '1.2rem', borderRadius: '10px', borderLeft: '5px solid #27ae60', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>
-                        <span style={{ fontSize: '0.8rem', color: '#7f8c8d', fontWeight: 'bold' }}>CITAS DE HOY</span>
-                        <h3 style={{ fontSize: '2rem', margin: '0.3rem 0 0', color: '#2c3e50' }}>{metricas.citasHoy}</h3>
-                    </div>
-                    <div style={{ backgroundColor: '#fff', padding: '1.2rem', borderRadius: '10px', borderLeft: '5px solid #f39c12', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>
-                        <span style={{ fontSize: '0.8rem', color: '#7f8c8d', fontWeight: 'bold' }}>PENDIENTES</span>
-                        <h3 style={{ fontSize: '2rem', margin: '0.3rem 0 0', color: '#2c3e50' }}>{metricas.pendientes}</h3>
-                    </div>
-                    <div style={{ backgroundColor: '#fff', padding: '1.2rem', borderRadius: '10px', borderLeft: '5px solid #2980b9', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>
-                        <span style={{ fontSize: '0.8rem', color: '#7f8c8d', fontWeight: 'bold' }}>TOTAL AGENDADAS</span>
-                        <h3 style={{ fontSize: '2rem', margin: '0.3rem 0 0', color: '#2c3e50' }}>{metricas.total}</h3>
-                    </div>
-                </section>
-
-                {/* Tabla / Lista de Reservas de Pacientes */}
-                <section style={{ backgroundColor: '#fff', padding: '1.8rem', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                        <h3 style={{ margin: 0, color: '#2c3e50' }}>Próximas Citas y Reservas</h3>
-                        <button
-                            onClick={abrirModalNuevo}
-                            style={{ backgroundColor: '#1e382b', color: '#fff', border: 'none', padding: '0.7rem 1.2rem', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' }}
-                        >
-                            + Nueva Reserva
-                        </button>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                        {reservas.map((r) => (
-                            <div key={r.id} className="recepcion-fila" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', borderBottom: '1px solid #f0f0f0' }}>
-                                <div>
-                                    <strong style={{ fontSize: '1.05rem', color: '#2c3e50' }}>{r.mascota}</strong>
-                                    <span style={{ color: '#7f8c8d', marginLeft: '0.5rem' }}>· {r.dueno} ({r.telefono})</span>
-                                    <div style={{ fontSize: '0.85rem', color: '#95a5a6', marginTop: '0.2rem' }}>
-                                        {r.fecha} · {r.hora} hs — <em>{r.servicio}</em>
-                                    </div>
-                                </div>
-                                <div className="recepcion-acciones" style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-                  <span style={{
-                      padding: '0.3rem 0.8rem',
-                      borderRadius: '12px',
-                      fontSize: '0.8rem',
-                      fontWeight: 'bold',
-                      color: '#fff',
-                      backgroundColor: r.estado === 'Confirmada' ? '#27ae60' : r.estado === 'Atendido' ? '#2980b9' : '#f39c12'
-                  }}>
-                    {r.estado}
-                  </span>
-
-                                    {r.estado === 'Pendiente' && (
-                                        <button
-                                            onClick={() => handleCambiarEstado(r.id, 'Confirmada')}
-                                            style={{ backgroundColor: '#27ae60', color: '#fff', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}
-                                        >
-                                            Confirmar
-                                        </button>
-                                    )}
-
-                                    <button
-                                        onClick={() => abrirModalEditar(r)}
-                                        style={{ backgroundColor: '#ecf0f1', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}
-                                    >
-                                        Editar / Cambiar
-                                    </button>
-                                    <button
-                                        onClick={() => handleEliminar(r.id)}
-                                        style={{ backgroundColor: '#e74c3c', color: '#fff', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}
-                                    >
-                                        Eliminar
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </section>
-
-                {/* Modal Formulario Crear / Editar */}
-                {mostrarModal && (
-                    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-                        <div style={{ backgroundColor: '#fff', padding: '2rem', borderRadius: '10px', width: '450px', maxWidth: '90%' }}>
-                            <h3 style={{ marginTop: 0, color: '#2c3e50' }}>{reservaEditando ? 'Editar Reserva' : 'Nueva Reserva de Atención'}</h3>
-                            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-                                <label style={{ fontSize: '0.85rem', color: '#2c3e50', fontWeight: 'bold' }}>Nombre de la Mascota:</label>
-                                <input type="text" name="mascota" value={form.mascota} onChange={handleChange} required style={{ padding: '0.6rem', borderRadius: '4px', border: '1px solid #ccc' }} />
-
-                                <label style={{ fontSize: '0.85rem', color: '#2c3e50', fontWeight: 'bold' }}>Nombre del Dueño:</label>
-                                <input type="text" name="dueno" value={form.dueno} onChange={handleChange} required style={{ padding: '0.6rem', borderRadius: '4px', border: '1px solid #ccc' }} />
-
-                                <label style={{ fontSize: '0.85rem', color: '#2c3e50', fontWeight: 'bold' }}>Teléfono de contacto:</label>
-                                <input type="text" name="telefono" value={form.telefono} onChange={handleChange} required style={{ padding: '0.6rem', borderRadius: '4px', border: '1px solid #ccc' }} />
-
-                                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                    <div style={{ flex: 1 }}>
-                                        <label style={{ fontSize: '0.85rem', color: '#2c3e50', fontWeight: 'bold' }}>Fecha:</label>
-                                        <input type="date" name="fecha" value={form.fecha} onChange={handleChange} required style={{ width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }} />
-                                    </div>
-                                    <div style={{ flex: 1 }}>
-                                        <label style={{ fontSize: '0.85rem', color: '#2c3e50', fontWeight: 'bold' }}>Hora:</label>
-                                        <input type="time" name="hora" value={form.hora} onChange={handleChange} required style={{ width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }} />
-                                    </div>
-                                </div>
-
-                                <label style={{ fontSize: '0.85rem', color: '#2c3e50', fontWeight: 'bold' }}>Servicio:</label>
-                                <select name="servicio" value={form.servicio} onChange={handleChange} style={{ padding: '0.6rem', borderRadius: '4px', border: '1px solid #ccc' }}>
-                                    {servicios.map(s => <option key={s.id} value={s.nombre}>{s.nombre}</option>)}
-                                </select>
-
-                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.8rem', marginTop: '1rem' }}>
-                                    <button type="button" onClick={() => setMostrarModal(false)} style={{ padding: '0.6rem 1rem', background: '#ccc', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Cancelar</button>
-                                    <button type="submit" style={{ padding: '0.6rem 1rem', background: '#1e382b', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Guardar Reserva</button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                )}
-            </main>
+  return (
+    <div className="recepcion">
+      <aside className="recepcion-lateral">
+        <div>
+          <div className="recepcion-marca">
+            <h1>Veterinaria</h1>
+            <h1 className="recepcion-marca-dorado">San Marcos</h1>
+            <p>PANEL DE RECEPCIÓN</p>
+          </div>
+          <nav>
+            <div className="recepcion-menu-activo">❖ Citas y Reservas</div>
+          </nav>
         </div>
-    );
+        <button type="button" className="recepcion-salir" onClick={onLogout}>Cerrar sesión</button>
+      </aside>
+
+      <main className="recepcion-principal">
+        <header className="recepcion-cabecera">
+          <h2>Gestión de Reservas</h2>
+          <span>Sesión: <strong>{usuario?.nombre ?? 'Recepcionista'}</strong></span>
+        </header>
+
+        <AnimatePresence>
+          {error && (
+            <motion.div className="alert alert-danger d-flex justify-content-between" role="alert" initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+              <span>{error}</span>
+              <button type="button" className="btn-close" aria-label="Cerrar aviso" onClick={() => setError('')} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <section className="recepcion-metricas">
+          <div className="recepcion-metrica recepcion-metrica--verde">
+            <span>CITAS DE HOY</span>
+            <h3>{metricas.hoy}</h3>
+          </div>
+          <div className="recepcion-metrica recepcion-metrica--naranja">
+            <span>PENDIENTES</span>
+            <h3>{metricas.pendientes}</h3>
+          </div>
+          <div className="recepcion-metrica recepcion-metrica--azul">
+            <span>POR ATENDER</span>
+            <h3>{metricas.activas}</h3>
+          </div>
+        </section>
+
+        <section className="recepcion-lista">
+          <div className="recepcion-lista-cabecera">
+            <h3>Próximas Citas y Reservas</h3>
+            <button type="button" className="recepcion-boton recepcion-boton--principal" onClick={() => abrirModal()} disabled={citas === null}>
+              + Nueva Reserva
+            </button>
+          </div>
+
+          {citas === null && !error && <p className="text-muted" role="status">Cargando la agenda…</p>}
+          {citas?.length === 0 && <p className="text-muted">No hay citas agendadas.</p>}
+
+          <ul className="recepcion-filas" aria-label="Agenda">
+            <AnimatePresence initial={false}>
+              {citas?.map((c) => (
+                <motion.li key={c.id} layout className="recepcion-fila" initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 16 }}>
+                  <div>
+                    <strong className="recepcion-mascota">{c.nombreMascota}</strong>
+                    <span className="recepcion-dueno">· {c.nombreDueno}{c.telefonoContacto ? ` (${c.telefonoContacto})` : ''}</span>
+                    <div className="recepcion-detalle">
+                      {c.fecha} · {c.hora} hs — <em>{c.servicioNombre}</em>
+                    </div>
+                  </div>
+                  <div className="recepcion-acciones">
+                    <span className={`recepcion-estado recepcion-estado--${c.estado.toLowerCase()}`}>{ETIQUETA_ESTADO[c.estado]}</span>
+                    {ACCIONES.filter((a) => a.desde === c.estado).map((a) => (
+                      <button key={a.hacia} type="button" className={`recepcion-boton ${a.clase}`} onClick={() => intentar(() => cambiarEstadoCita(c.id, a.hacia))}>
+                        {a.texto}
+                      </button>
+                    ))}
+                    {!esEstadoFinal(c.estado) && (
+                      <>
+                        <button type="button" className="recepcion-boton" onClick={() => abrirModal(c)}>Editar / Cambiar</button>
+                        <button type="button" className="recepcion-boton" onClick={() => handleCancelar(c)}>Cancelar</button>
+                      </>
+                    )}
+                    {c.estado !== 'COMPLETADA' && (
+                      <button type="button" className="recepcion-boton recepcion-boton--rojo" onClick={() => handleEliminar(c)}>Eliminar</button>
+                    )}
+                  </div>
+                </motion.li>
+              ))}
+            </AnimatePresence>
+          </ul>
+        </section>
+
+        <AnimatePresence>
+          {mostrarModal && (
+            <motion.div className="recepcion-modal-fondo" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <motion.div className="recepcion-modal" role="dialog" aria-modal="true" aria-labelledby="recepcion-modal-titulo" initial={{ scale: 0.92, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.92, y: 20 }}>
+                <h3 id="recepcion-modal-titulo">{citaEditando ? 'Editar Reserva' : 'Nueva Reserva de Atención'}</h3>
+                <form onSubmit={handleSubmit} noValidate>
+                  {form.mascotaId ? (
+                    <p className="recepcion-nota">
+                      Mascota registrada: <strong>{form.nombreMascota}</strong> de {form.nombreDueno}. Los datos de contacto salen de la cuenta del dueño.
+                    </p>
+                  ) : (
+                    <>
+                      {campo('nombreMascota', 'Nombre de la Mascota:', { type: 'text', required: true })}
+                      {campo('nombreDueno', 'Nombre del Dueño:', { type: 'text', required: true })}
+                      {campo('telefonoContacto', 'Teléfono de contacto:', { type: 'tel', required: true, placeholder: '+56 9 1234 5678' })}
+                    </>
+                  )}
+                  <div className="recepcion-dos-columnas">
+                    {campo('fecha', 'Fecha:', { type: 'date', required: true, min: citaEditando ? undefined : hoy })}
+                    {campo('hora', 'Hora:', { type: 'time', required: true })}
+                  </div>
+                  <div className="recepcion-campo">
+                    <label htmlFor="r-servicioId">Servicio:</label>
+                    <select id="r-servicioId" name="servicioId" value={form.servicioId} onChange={handleChange}>
+                      {servicios.map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+                    </select>
+                  </div>
+                  {campo('notas', 'Notas:', { type: 'text', placeholder: 'Opcional' })}
+
+                  {errorForm && <div className="alert alert-danger small py-2 mb-0" role="alert">{errorForm}</div>}
+
+                  <div className="recepcion-modal-botones">
+                    <button type="button" className="recepcion-boton" onClick={() => setMostrarModal(false)}>Cancelar</button>
+                    <button type="submit" className="recepcion-boton recepcion-boton--principal" disabled={guardando}>{guardando ? 'Guardando…' : 'Guardar Reserva'}</button>
+                  </div>
+                </form>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </main>
+    </div>
+  )
 }
