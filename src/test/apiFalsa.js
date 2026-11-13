@@ -319,21 +319,29 @@ export function instalarApiFalsa() {
       estado.citas = estado.citas.filter((x) => x !== c)
       return [204]
     }],
-    ['GET', '/reportes/resumen', ({ actor }) => {
+    // Cada microservicio entrega el reporte de sus propios datos.
+    ['GET', '/reportes/citas', ({ actor }) => {
       exigir(actor, 'ADMIN')
       const citasPorEstado = { PENDIENTE: 0, CONFIRMADA: 0, COMPLETADA: 0, CANCELADA: 0 }
       estado.citas.forEach((c) => (citasPorEstado[c.estado] += 1))
-      const pagadas = estado.boletas.filter((b) => b.estado === 'PAGADA')
       return [200, {
         citasPorEstado,
         citasDeHoy: estado.citas.filter((c) => c.fecha === iso(0) && c.estado !== 'CANCELADA').length,
         citasPorServicio: [{ etiqueta: 'Consulta General', valor: 1 }, { etiqueta: 'Vacunación', valor: 1 }],
-        boletasPagadas: pagadas.length,
-        ventasTotales: pagadas.reduce((t, b) => t + b.total, 0),
-        ventasPorProducto: [],
-        clientesActivos: estado.usuarios.filter((u) => u.rol === 'CLIENTE' && u.activo).length,
-        productosConStockBajo: estado.productos.filter((p) => p.tipo === 'PRODUCTO' && p.stock <= 5).map(productoResp),
       }]
+    }],
+    ['GET', '/reportes/ventas', ({ actor }) => {
+      exigir(actor, 'ADMIN')
+      const pagadas = estado.boletas.filter((b) => b.estado === 'PAGADA')
+      return [200, { boletasPagadas: pagadas.length, ventasTotales: pagadas.reduce((t, b) => t + b.total, 0), ventasPorProducto: [] }]
+    }],
+    ['GET', '/reportes/usuarios', ({ actor }) => {
+      exigir(actor, 'ADMIN')
+      return [200, { clientesActivos: estado.usuarios.filter((u) => u.rol === 'CLIENTE' && u.activo).length }]
+    }],
+    ['GET', '/reportes/inventario', ({ actor }) => {
+      exigir(actor, 'ADMIN')
+      return [200, { productosConStockBajo: estado.productos.filter((p) => p.tipo === 'PRODUCTO' && p.stock <= 5).map(productoResp) }]
     }],
     ['GET', '/usuarios', ({ actor }) => {
       exigir(actor, 'ADMIN')

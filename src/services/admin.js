@@ -1,11 +1,22 @@
 // Servicios del panel de administración (rol ADMIN):
-//   GET   /api/v1/reportes/resumen
+//   GET   /api/v1/reportes/citas, /reportes/ventas, /reportes/usuarios y /reportes/inventario
 //   GET   /api/v1/usuarios          POST /api/v1/usuarios
 //   PATCH /api/v1/usuarios/{id}/activo
 import { api } from './api.js'
 
-export function obtenerResumen() {
-  return api('/reportes/resumen')
+/**
+ * Resumen del panel. Cada microservicio entrega las métricas de sus propios datos y aquí se juntan
+ * (composición en el cliente): ms-agenda las citas, ms-ventas las ventas, ms-usuarios los clientes
+ * y ms-catalogo el stock. Las cuatro peticiones van en paralelo.
+ */
+export async function obtenerResumen() {
+  const [citas, ventas, usuarios, inventario] = await Promise.all([
+    api('/reportes/citas'),
+    api('/reportes/ventas'),
+    api('/reportes/usuarios'),
+    api('/reportes/inventario'),
+  ])
+  return { ...citas, ...ventas, ...usuarios, ...inventario }
 }
 
 export function listarUsuarios() {

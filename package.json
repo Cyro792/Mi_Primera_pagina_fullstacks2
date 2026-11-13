@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:sin-docker": "vite --mode sin-docker",
     "build": "vite build",
     "preview": "vite preview",
     "lint": "oxlint",

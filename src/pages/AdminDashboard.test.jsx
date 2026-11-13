@@ -25,7 +25,10 @@ async function abrirPanel(onLogout = vi.fn()) {
 describe('AdminDashboard (panel de administración con la API)', () => {
   it('muestra el resumen con los KPIs que calcula el servidor', async () => {
     await abrirPanel()
-    expect(apiFalsa().llamadasA('GET', '/reportes/resumen')).toHaveLength(1)
+    // El resumen junta los reportes de los cuatro microservicios.
+    for (const reporte of ['citas', 'ventas', 'usuarios', 'inventario']) {
+      expect(apiFalsa().llamadasA('GET', `/reportes/${reporte}`)).toHaveLength(1)
+    }
     expect(valorTarjeta('Citas de hoy')).toBe('1')
     expect(valorTarjeta('Pendientes')).toBe('1')
     expect(valorTarjeta('Clientes activos')).toBe('1')

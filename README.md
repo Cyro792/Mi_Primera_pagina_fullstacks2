@@ -21,8 +21,9 @@ Además:
 
 ## Cómo ejecutar
 
-El frontend necesita el backend (`vetsm-backend`) corriendo en <http://localhost:8080>. Primero se
-levanta el backend (ver su README) y después:
+El frontend necesita el backend (`vetsm-backend`), que son cuatro microservicios detrás de un API
+Gateway. Primero se levanta el backend con Docker (`docker compose up --build`, ver su README) y
+después:
 
 ```bash
 npm install
@@ -30,13 +31,18 @@ npm run dev
 ```
 
 El sitio queda en <http://localhost:3000>. En desarrollo, Vite redirige las llamadas a `/api` al
-backend (proxy en `vite.config.js`): así el navegador ve un solo sitio, no hay problemas de CORS y la
-cookie de la sesión funciona igual que en producción, donde Nginx hace lo mismo. Si el backend corre
-en otra dirección, se indica con la variable `VITE_PROXY_API` (por ejemplo `http://localhost:9090`).
+gateway en el puerto 8080 (proxy en `vite.config.js`): así el navegador ve un solo sitio, no hay
+problemas de CORS y la cookie de la sesión funciona igual que en producción. Si el gateway corre en
+otra dirección, se indica con la variable `VITE_PROXY_API`.
+
+**Sin Docker:** si los cuatro microservicios se levantan directo con `java -jar` (puertos 8081 a
+8084), se usa `npm run dev:sin-docker`. En ese modo Vite hace de gateway: reparte cada ruta al
+servicio que corresponde, con la misma tabla que usa Nginx.
 
 | Comando | Qué hace |
 |---|---|
 | `npm run dev` | Servidor de desarrollo |
+| `npm run dev:sin-docker` | Servidor de desarrollo con el backend corriendo sin Docker |
 | `npm run build` | Compila el sitio para producción en `dist/` |
 | `npm run preview` | Sirve la versión compilada |
 | `npm test` | Ejecuta todas las pruebas |
@@ -91,7 +97,7 @@ llamadas se hacen con `fetch` desde `src/services/`; cada archivo corresponde a 
 | `tarjetas.js` | `GET/POST /tarjetas`, `PATCH /tarjetas/{id}/predeterminada`, `DELETE /tarjetas/{id}` | Pago, Mi cuenta → Tarjetas |
 | `boletas.js` | `POST /boletas`, `GET /boletas/mias` | Pago, Mis compras |
 | `citas.js` | `POST/GET /citas`, `PUT /citas/{id}`, `PATCH /citas/{id}/estado`, `DELETE /citas/{id}` | Formulario de cita, paneles |
-| `admin.js` | `GET /reportes/resumen`, `GET/POST /usuarios`, `PATCH /usuarios/{id}/activo` | Panel de administración |
+| `admin.js` | `GET /reportes/citas`, `/reportes/ventas`, `/reportes/usuarios` y `/reportes/inventario` (uno por microservicio), `GET/POST /usuarios`, `PATCH /usuarios/{id}/activo` | Panel de administración |
 
 `src/services/api.js` es el cliente HTTP común: agrega el token, convierte los errores del backend
 (`{ status, mensaje, errores }`) en `ApiError` para mostrarlos en pantalla (los errores por campo
