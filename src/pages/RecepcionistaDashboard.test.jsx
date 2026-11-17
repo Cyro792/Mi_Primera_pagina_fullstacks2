@@ -103,6 +103,24 @@ describe('RecepcionistaDashboard (panel de recepción con la API)', () => {
     expect(apiFalsa().estado.citas.some((c) => c.id === 2)).toBe(false)
   })
 
+  it('11. La recepcionista cambia su contraseña desde "Mi contraseña" y vuelve a la agenda', async () => {
+    await abrirPanel()
+    fireEvent.click(screen.getByRole('button', { name: /Mi contraseña/ }))
+    expect(screen.getByRole('heading', { name: 'Mi contraseña' })).toBeInTheDocument()
+    expect(screen.queryByText('Pepe')).not.toBeInTheDocument()
+
+    const cambiar = (etiqueta, valor) => fireEvent.change(screen.getByLabelText(etiqueta), { target: { value: valor } })
+    cambiar('Contraseña actual', 'Recep123!')
+    cambiar('Nueva contraseña', 'Sopaipilla1234')
+    cambiar('Repite la nueva contraseña', 'Sopaipilla1234')
+    fireEvent.click(screen.getByRole('button', { name: 'Cambiar contraseña' }))
+    expect(await screen.findByText(/Contraseña actualizada/)).toBeInTheDocument()
+    expect(apiFalsa().estado.usuarios.find((u) => u.email === 'recepcion@sanmarcos.cl').password).toBe('Sopaipilla1234')
+
+    fireEvent.click(screen.getByRole('button', { name: /Citas y Reservas/ }))
+    expect(await screen.findByText('Pepe')).toBeInTheDocument()
+  })
+
   it('10. Debe ejecutar onLogout al hacer clic en cerrar sesión', async () => {
     const onLogout = await abrirPanel()
     fireEvent.click(screen.getByRole('button', { name: /Cerrar sesión/i }))

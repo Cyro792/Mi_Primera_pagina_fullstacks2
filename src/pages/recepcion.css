@@ -20,7 +20,11 @@
 .recepcion-marca h1 { font-size: 1.6rem; color: #e2f0d9; margin: 0; font-weight: 600; }
 .recepcion-marca .recepcion-marca-dorado { color: #c5a059; font-style: italic; font-weight: 400; }
 .recepcion-marca p { font-size: 0.75rem; color: #a0b4a8; margin-top: 0.8rem; letter-spacing: 1px; }
+.recepcion-menu { display: flex; flex-direction: column; gap: 0.4rem; }
+.recepcion-menu button { width: 100%; text-align: left; border: none; color: inherit; font: inherit; cursor: pointer; }
 .recepcion-menu-activo { padding: 0.8rem 1rem; border-radius: 8px; background-color: #2d4d3c; font-weight: 500; }
+.recepcion-menu-item { padding: 0.8rem 1rem; border-radius: 8px; background: transparent; opacity: 0.85; }
+.recepcion-menu-item:hover { background: #2d4d3c; opacity: 1; }
 .recepcion-salir {
   width: 100%;
   padding: 0.8rem;

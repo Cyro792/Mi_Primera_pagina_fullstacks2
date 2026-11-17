@@ -13,6 +13,7 @@ import {
 import { listarProductos } from '../services/productos.js'
 import { aISO } from '../utils/data.js'
 import { citasDelDia, contarPorEstado } from '../utils/stats.js'
+import CambioPassword from '../components/cuenta/CambioPassword.jsx'
 import './recepcion.css'
 
 // Formulario en blanco para una cita nueva. La fecha por defecto es hoy (hora local).
@@ -35,6 +36,8 @@ const ACCIONES = [
 /** Panel de recepción: la agenda completa con alta, edición, cambio de estado y eliminación (API). */
 export default function RecepcionistaDashboard({ onLogout }) {
   const { usuario } = useAuth()
+  // Vista del panel: 'agenda' (citas) o 'clave' (cambiar la propia contraseña).
+  const [vista, setVista] = useState('agenda')
   const [citas, setCitas] = useState(null)
   const [servicios, setServicios] = useState([])
   const [error, setError] = useState('')
@@ -136,8 +139,13 @@ export default function RecepcionistaDashboard({ onLogout }) {
             <h1 className="recepcion-marca-dorado">San Marcos</h1>
             <p>PANEL DE RECEPCIÓN</p>
           </div>
-          <nav>
-            <div className="recepcion-menu-activo">❖ Citas y Reservas</div>
+          <nav className="recepcion-menu" aria-label="Secciones del panel">
+            <button type="button" className={vista === 'agenda' ? 'recepcion-menu-activo' : 'recepcion-menu-item'} aria-current={vista === 'agenda' ? 'page' : undefined} onClick={() => setVista('agenda')}>
+              ❖ Citas y Reservas
+            </button>
+            <button type="button" className={vista === 'clave' ? 'recepcion-menu-activo' : 'recepcion-menu-item'} aria-current={vista === 'clave' ? 'page' : undefined} onClick={() => setVista('clave')}>
+              ◍ Mi contraseña
+            </button>
           </nav>
         </div>
         <button type="button" className="recepcion-salir" onClick={onLogout}>Cerrar sesión</button>
@@ -145,9 +153,16 @@ export default function RecepcionistaDashboard({ onLogout }) {
 
       <main className="recepcion-principal">
         <header className="recepcion-cabecera">
-          <h2>Gestión de Reservas</h2>
+          <h2>{vista === 'clave' ? 'Mi contraseña' : 'Gestión de Reservas'}</h2>
           <span>Sesión: <strong>{usuario?.nombre ?? 'Recepcionista'}</strong></span>
         </header>
+
+        {vista === 'clave' ? (
+          <section className="recepcion-lista" style={{ maxWidth: '32rem' }}>
+            <CambioPassword />
+          </section>
+        ) : (
+        <>
 
         <AnimatePresence>
           {error && (
@@ -258,6 +273,8 @@ export default function RecepcionistaDashboard({ onLogout }) {
             </motion.div>
           )}
         </AnimatePresence>
+        </>
+        )}
       </main>
     </div>
   )

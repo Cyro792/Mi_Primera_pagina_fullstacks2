@@ -3,6 +3,7 @@ export const SECCIONES = [
   { id: 'citas', etiqueta: 'Citas', icono: '◎' },
   { id: 'productos', etiqueta: 'Productos', icono: '◇' },
   { id: 'usuarios', etiqueta: 'Usuarios', icono: '◉' },
+  { id: 'clave', etiqueta: 'Mi contraseña', icono: '◍' },
 ]
 
 export default function Sidebar({ seccion, onSeleccionar, abierto, onCerrar, onLogout }) {

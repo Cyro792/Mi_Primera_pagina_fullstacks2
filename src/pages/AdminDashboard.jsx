@@ -10,6 +10,7 @@ import ResumenPanel from '../components/admin/ResumenPanel.jsx'
 import CitasTable from '../components/admin/CitasTable.jsx'
 import UsuariosPanel from '../components/admin/UsuariosPanel.jsx'
 import ProductosPanel from '../components/admin/ProductosPanel.jsx'
+import CambioPassword from '../components/cuenta/CambioPassword.jsx'
 import '../components/admin/admin.css'
 
 /** Pide a la API todo lo que muestra el panel. */
@@ -119,6 +120,13 @@ export default function AdminDashboard({ onLogout, hoy = aISO() }) {
                   onAgregar={agregarUsuario}
                   onToggleActivo={(u) => intentar(() => cambiarActivoUsuario(u.id, !u.activo))}
                 />
+              )}
+              {seccion === 'clave' && (
+                <div className="card shadow-sm" style={{ maxWidth: '32rem' }}>
+                  <div className="card-body p-4">
+                    <CambioPassword />
+                  </div>
+                </div>
               )}
             </motion.div>
           )}

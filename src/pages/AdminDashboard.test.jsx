@@ -129,6 +129,25 @@ describe('AdminDashboard (panel de administración con la API)', () => {
     expect(barraLateral).not.toHaveClass('abierto')
   })
 
+  it('el administrador cambia su propia contraseña en "Mi contraseña"', async () => {
+    await abrirPanel()
+    ir('Mi contraseña')
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Mi contraseña')
+    const cambiar = (etiqueta, valor) => fireEvent.change(screen.getByLabelText(etiqueta), { target: { value: valor } })
+
+    // Con la contraseña actual equivocada, el servidor la rechaza y el error aparece bajo ese campo.
+    cambiar('Contraseña actual', 'NoEsLaClave1')
+    cambiar('Nueva contraseña', 'Empanada1234')
+    cambiar('Repite la nueva contraseña', 'Empanada1234')
+    fireEvent.click(screen.getByRole('button', { name: 'Cambiar contraseña' }))
+    expect(await screen.findByText('La contraseña actual no es correcta.')).toBeInTheDocument()
+
+    cambiar('Contraseña actual', 'Admin123!')
+    fireEvent.click(screen.getByRole('button', { name: 'Cambiar contraseña' }))
+    expect(await screen.findByText(/Contraseña actualizada/)).toBeInTheDocument()
+    expect(apiFalsa().estado.usuarios.find((u) => u.email === 'admin@sanmarcos.cl').password).toBe('Empanada1234')
+  })
+
   it('Cerrar sesión llama a onLogout', async () => {
     const onLogout = await abrirPanel()
     fireEvent.click(screen.getByRole('button', { name: 'Cerrar sesión' }))
